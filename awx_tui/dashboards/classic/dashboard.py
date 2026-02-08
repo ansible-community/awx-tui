@@ -214,6 +214,8 @@ class ClassicDashboard(BaseDashboard):
             "Template",
             "Inventory",
             "Execution Environment",
+            "Forks",
+            "Job Slices",
             "Started",
         )
 
@@ -230,7 +232,9 @@ class ClassicDashboard(BaseDashboard):
             "Template",
             "Inventory",
             "Execution Environment",
-            "Time",
+            "Forks",
+            "Job Slices",
+            "Finished",
         )
 
         # Call parent on_mount to trigger initial data load and start auto-refresh timer
@@ -765,6 +769,10 @@ class ClassicDashboard(BaseDashboard):
                 inventory = summary.get("inventory", {}).get("name", "N/A")[:17]
                 exec_env = summary.get("execution_environment", {}).get("name", "N/A")[:21]
 
+            # Get execution parameters
+            forks = str(job.get("forks", "N/A"))
+            job_slice_count = str(job.get("job_slice_count", "N/A"))
+
             # Format started timestamp
             started_str = "N/A"
             started = job.get("started")
@@ -780,7 +788,19 @@ class ClassicDashboard(BaseDashboard):
                 new_cursor_row = idx
 
             table.add_row(
-                jid, type_emoji, status_emoji, name, user, project, playbook, template, inventory, exec_env, started_str
+                jid,
+                type_emoji,
+                status_emoji,
+                name,
+                user,
+                project,
+                playbook,
+                template,
+                inventory,
+                exec_env,
+                forks,
+                job_slice_count,
+                started_str,
             )
 
         # Restore cursor to same job ID if found, otherwise use same row number
@@ -911,6 +931,10 @@ class ClassicDashboard(BaseDashboard):
                 inventory = summary.get("inventory", {}).get("name", "N/A")[:17]
                 exec_env = summary.get("execution_environment", {}).get("name", "N/A")[:21]
 
+            # Get execution parameters
+            forks = str(job.get("forks", "N/A"))
+            job_slice_count = str(job.get("job_slice_count", "N/A"))
+
             # Format finished timestamp
             finished_str = "?"
             finished = job.get("finished")
@@ -936,6 +960,8 @@ class ClassicDashboard(BaseDashboard):
                 template,
                 inventory,
                 exec_env,
+                forks,
+                job_slice_count,
                 finished_str,
             )
 

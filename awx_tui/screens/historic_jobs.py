@@ -215,6 +215,8 @@ class HistoricJobsScreen(Screen):
             "Template",
             "Inventory",
             "Execution Environment",
+            "Forks",
+            "Job Slices",
             "Finished",
         )
 
@@ -714,6 +716,10 @@ class HistoricJobsScreen(Screen):
                 inventory = summary.get("inventory", {}).get("name", "N/A")[:17]
                 exec_env = summary.get("execution_environment", {}).get("name", "N/A")[:21]
 
+            # Get execution parameters
+            forks = str(job.get("forks", "N/A"))
+            job_slice_count = str(job.get("job_slice_count", "N/A"))
+
             # Format finished timestamp
             finished_str = "?"
             finished = job.get("finished")
@@ -739,6 +745,8 @@ class HistoricJobsScreen(Screen):
                 template,
                 inventory,
                 exec_env,
+                forks,
+                job_slice_count,
                 finished_str,
             )
 

@@ -216,6 +216,8 @@ class ActiveJobsScreen(Screen):
             "Template",
             "Inventory",
             "Execution Environment",
+            "Forks",
+            "Job Slices",
             "Started",
         )
 
@@ -640,6 +642,10 @@ class ActiveJobsScreen(Screen):
                 inventory = summary.get("inventory", {}).get("name", "N/A")[:17]
                 exec_env = summary.get("execution_environment", {}).get("name", "N/A")[:21]
 
+            # Get execution parameters
+            forks = str(job.get("forks", "N/A"))
+            job_slice_count = str(job.get("job_slice_count", "N/A"))
+
             # Format started timestamp
             started_str = "N/A"
             started = job.get("started")
@@ -655,7 +661,19 @@ class ActiveJobsScreen(Screen):
                 new_cursor_row = idx
 
             table.add_row(
-                jid, type_emoji, status_emoji, name, user, project, playbook, template, inventory, exec_env, started_str
+                jid,
+                type_emoji,
+                status_emoji,
+                name,
+                user,
+                project,
+                playbook,
+                template,
+                inventory,
+                exec_env,
+                forks,
+                job_slice_count,
+                started_str,
             )
 
         # Restore cursor to same job ID if found, otherwise use same row number

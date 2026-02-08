@@ -54,6 +54,10 @@ class JobInfoHeader(Static):
         playbook = job_data.get("playbook", "N/A")
         launch_type = job_data.get("launch_type", "manual")
 
+        # Execution parameters
+        forks = job_data.get("forks", "N/A")
+        job_slice_count = job_data.get("job_slice_count", "N/A")
+
         # Timestamps
         started = job_data.get("started")
         finished = job_data.get("finished")
@@ -111,7 +115,7 @@ class JobInfoHeader(Static):
         # Build compact 4-line header
         info_text = f"""Job #{job_id} {type_emoji} {name[:60]} | {status_text} | Launched via: {launch_emoji} {launch_type.title()}
 👤 {user} | 📦 {project[:30]} | 🎯 {template[:30]} | 📋 {inventory[:25]}
-📄 {playbook[:40]} | ⏱ {started_str} → 🏁 {finished_str} | ⌛ {duration_str}"""
+📄 {playbook[:40]} | 🧵 {forks} | 🍕 {job_slice_count} | ⏱ {started_str} → 🏁 {finished_str} | ⌛ {duration_str}"""
 
         self.update(info_text)
 
