@@ -154,6 +154,7 @@ class CreateHostsScreen(Screen):
         Binding("ctrl+s", "submit", "Submit", show=True),
         Binding("ctrl+l", "clear_form", "Clear", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -550,3 +551,81 @@ class CreateHostsScreen(Screen):
     def action_quit(self) -> None:
         """Quit the application"""
         self.app.exit()
+
+    def action_export_task(self) -> None:
+        """Export host as Ansible task using awx.awx.host module"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import host_to_ansible_task
+
+        # Build host data with resolved names
+        host_data = self._build_ansible_task_data()
+
+        # Convert to Ansible task YAML
+        yaml_str, notes = host_to_ansible_task(host_data)
+
+        # Show export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=yaml_str,
+                title="Export AP Task - Host",
+                module_name="host",
+                notes=notes,
+            )
+        )
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build host data dict with resolved dropdown names for Ansible task export
+
+        Returns:
+            dict: Host data with names instead of IDs where possible
+        """
+        import json
+
+        # Get form values
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+        enabled = self.query_one("#enabled", Checkbox).value
+
+        # Get inventory ID and resolve to name
+        inventory_id = self.query_one("#inventory", Select).value
+        inventory_name = None
+        if inventory_id and inventory_id is not Select.BLANK:
+            inv_select = self.query_one("#inventory", Select)
+            # Find the selected option's display name
+            for option in inv_select._options:
+                if option[1] == inventory_id:
+                    inventory_name = option[0]
+                    break
+
+        # Get variables
+        variables_text = self.query_one("#variables_area", TextArea).text.strip()
+        variables_dict = None
+        if variables_text:
+            try:
+                variables_dict = json.loads(variables_text)
+            except json.JSONDecodeError:
+                pass  # Ignore invalid JSON for export
+
+        # Build host data
+        host_data = {
+            "name": name,
+        }
+
+        if description:
+            host_data["description"] = description
+
+        # Add inventory (prefer name, fallback to ID)
+        if inventory_name:
+            host_data["inventory_name"] = inventory_name
+        elif inventory_id and inventory_id is not Select.BLANK:
+            host_data["inventory"] = inventory_id
+
+        # Only include enabled if False (default is True)
+        if enabled is False:
+            host_data["enabled"] = False
+
+        # Add variables if valid
+        if variables_dict:
+            host_data["variables"] = variables_dict
+
+        return host_data

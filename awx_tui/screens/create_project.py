@@ -164,6 +164,7 @@ class CreateProjectScreen(Screen):
         Binding("ctrl+s", "submit", "Submit", show=True),
         Binding("ctrl+l", "clear_form", "Clear", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -697,6 +698,27 @@ class CreateProjectScreen(Screen):
             )
         )
 
+    def action_export_task(self) -> None:
+        """Export current form as Ansible awx.awx.project task"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import project_to_ansible_task
+
+        # Build project data with names resolved from dropdowns
+        ansible_data = self._build_ansible_task_data()
+
+        # Generate YAML task
+        yaml_str, notes = project_to_ansible_task(ansible_data)
+
+        # Show the export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=yaml_str,
+                title="Export AP Task - Project",
+                module_name="project",
+                notes=notes,
+            )
+        )
+
     def _build_project_data_for_preview(self) -> tuple:
         """Build project data dict from current form values (for preview, no validation)
 
@@ -762,6 +784,75 @@ class CreateProjectScreen(Screen):
         notes = []
 
         return project_data, notes
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build project data for Ansible export with names resolved from dropdowns
+
+        Returns:
+            dict: Data dictionary with names instead of IDs where possible
+        """
+
+        # Helper function to get name from Select widget
+        def get_selected_name(widget_id: str) -> tuple:
+            """Get (name, id) from Select widget, returns (None, None) if not selected"""
+            select_widget = self.query_one(f"#{widget_id}", Select)
+            selected_id = select_widget.value
+            if selected_id is None or selected_id is Select.BLANK:
+                return None, None
+
+            # Find the name by looking through options
+            for option_name, option_id in select_widget._options:
+                if option_id == selected_id:
+                    return option_name, option_id
+            return None, selected_id
+
+        # Get form values with names
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+
+        organization_name, organization_id = get_selected_name("organization")
+        default_environment_name, default_environment_id = get_selected_name("default_environment")
+        scm_credential_name, scm_credential_id = get_selected_name("scm_credential")
+
+        scm_type = self.query_one("#scm_type", Select).value
+        if scm_type is Select.BLANK:
+            scm_type = None
+
+        scm_url = self.query_one("#scm_url", Input).value.strip()
+        scm_branch = self.query_one("#scm_branch", Input).value.strip()
+        scm_clean = self.query_one("#scm_clean", Checkbox).value
+        scm_delete_on_update = self.query_one("#scm_delete_on_update", Checkbox).value
+        scm_update_on_launch = self.query_one("#scm_update_on_launch", Checkbox).value
+
+        # Build data dict with names
+        ansible_data = {
+            "name": name,
+            "description": description,
+            "scm_type": scm_type,
+            "scm_url": scm_url,
+            "scm_branch": scm_branch,
+            "scm_clean": scm_clean,
+            "scm_delete_on_update": scm_delete_on_update,
+            "scm_update_on_launch": scm_update_on_launch,
+        }
+
+        # Add IDs and names where available
+        if organization_name:
+            ansible_data["organization_name"] = organization_name
+        if organization_id:
+            ansible_data["organization"] = organization_id
+
+        if default_environment_name:
+            ansible_data["default_environment_name"] = default_environment_name
+        if default_environment_id:
+            ansible_data["default_environment"] = default_environment_id
+
+        if scm_credential_name:
+            ansible_data["credential_name"] = scm_credential_name
+        if scm_credential_id:
+            ansible_data["credential"] = scm_credential_id
+
+        return ansible_data
 
     def action_close(self) -> None:
         """Close create project screen and save state"""

@@ -163,10 +163,12 @@ class JsonPreviewModal(ModalScreen):
                 # Check if field name contains any sensitive keywords
                 is_sensitive = any(sensitive_field in key.lower() for sensitive_field in self.SENSITIVE_FIELDS)
 
-                if is_sensitive and value:
-                    scrubbed[key] = "***REDACTED***"
-                elif isinstance(value, (dict, list)):
+                # Always recurse into dicts and lists, even if field name is sensitive
+                if isinstance(value, (dict, list)):
                     scrubbed[key] = self._scrub_sensitive_data(value)
+                elif is_sensitive and value:
+                    # Only redact primitive values in sensitive fields
+                    scrubbed[key] = "***REMOVED***"
                 else:
                     scrubbed[key] = value
             return scrubbed

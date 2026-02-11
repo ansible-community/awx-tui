@@ -238,6 +238,7 @@ class CreateJobTemplateScreen(Screen):
         Binding("ctrl+s", "submit", "Submit", show=True),
         Binding("ctrl+l", "clear_form", "Clear", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -1013,6 +1014,27 @@ class CreateJobTemplateScreen(Screen):
             )
         )
 
+    def action_export_task(self) -> None:
+        """Export current form as Ansible awx.awx.job_template task"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import job_template_to_ansible_task
+
+        # Build job template data with names resolved from dropdowns
+        ansible_data = self._build_ansible_task_data()
+
+        # Generate YAML task
+        yaml_str, notes = job_template_to_ansible_task(ansible_data)
+
+        # Show the export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=yaml_str,
+                title="Export AP Task - Job Template",
+                module_name="job_template",
+                notes=notes,
+            )
+        )
+
     def _build_job_template_data_for_preview(self) -> tuple:
         """Build job template data dict from current form values (for preview, no validation)
 
@@ -1110,6 +1132,123 @@ class CreateJobTemplateScreen(Screen):
             )
 
         return job_template_data, notes
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build job template data for Ansible export with names resolved from dropdowns
+
+        Returns:
+            dict: Data dictionary with names instead of IDs where possible
+        """
+
+        # Helper function to get name from Select widget
+        def get_selected_name(widget_id: str) -> tuple:
+            """Get (name, id) from Select widget, returns (None, None) if not selected"""
+            select_widget = self.query_one(f"#{widget_id}", Select)
+            selected_id = select_widget.value
+            if selected_id is None or selected_id is Select.BLANK:
+                return None, None
+
+            # Find the name by looking through options
+            for option_name, option_id in select_widget._options:
+                if option_id == selected_id:
+                    return option_name, option_id
+            return None, selected_id
+
+        # Get form values with names
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+
+        project_name, project_id = get_selected_name("project")
+        inventory_name, inventory_id = get_selected_name("inventory")
+        ee_name, ee_id = get_selected_name("execution_environment")
+        credential_name, credential_id = get_selected_name("credential")
+
+        playbook = self.query_one("#playbook", Select).value
+        if playbook is Select.BLANK:
+            playbook = None
+
+        verbosity = self.query_one("#verbosity", Select).value
+        if verbosity is Select.BLANK:
+            verbosity = 0
+
+        limit = self.query_one("#limit", Input).value.strip()
+        forks = self.query_one("#forks", Input).value.strip()
+        job_slicing = self.query_one("#job_slicing", Input).value.strip()
+        timeout = self.query_one("#timeout", Input).value.strip()
+
+        become_enabled = self.query_one("#become_enabled", Checkbox).value
+        allow_simultaneous = self.query_one("#allow_simultaneous", Checkbox).value
+        use_fact_cache = self.query_one("#use_fact_cache", Checkbox).value
+
+        extra_vars_text = self.query_one("#extra_vars_area", TextArea).text.strip()
+
+        # Build data dict with names
+        ansible_data = {
+            "name": name,
+            "description": description,
+            "job_type": "run",
+            "playbook": playbook,
+            "verbosity": verbosity,
+            "become_enabled": become_enabled,
+            "allow_simultaneous": allow_simultaneous,
+            "use_fact_cache": use_fact_cache,
+        }
+
+        # Add IDs and names where available
+        if project_name:
+            ansible_data["project_name"] = project_name
+        if project_id:
+            ansible_data["project"] = project_id
+
+        if inventory_name:
+            ansible_data["inventory_name"] = inventory_name
+        if inventory_id:
+            ansible_data["inventory"] = inventory_id
+
+        if ee_name:
+            ansible_data["execution_environment_name"] = ee_name
+        if ee_id:
+            ansible_data["execution_environment"] = ee_id
+
+        if credential_name:
+            ansible_data["credential_names"] = [credential_name]
+        if credential_id:
+            ansible_data["credentials"] = [credential_id]
+
+        # Optional fields
+        if limit:
+            ansible_data["limit"] = limit
+        if forks:
+            ansible_data["forks"] = forks
+        if job_slicing:
+            ansible_data["job_slice_count"] = job_slicing
+        if timeout:
+            ansible_data["timeout"] = timeout
+
+        # Extra vars
+        if extra_vars_text:
+            try:
+                extra_vars_dict = json.loads(extra_vars_text)
+                ansible_data["extra_vars"] = extra_vars_dict
+            except json.JSONDecodeError:
+                ansible_data["extra_vars"] = extra_vars_text
+
+        # Get vault credentials
+        vault_list = self.query_one("#vault_credentials_list", SelectionList)
+        selected_vault_ids = list(vault_list.selected)
+        if selected_vault_ids:
+            # Try to get names from the SelectionList options
+            vault_names = []
+            for option in vault_list._options:
+                if option.id in selected_vault_ids:
+                    vault_names.append(str(option.prompt))
+
+            if vault_names and credential_name:
+                ansible_data["credential_names"].extend(vault_names)
+            elif vault_names:
+                ansible_data["credential_names"] = vault_names
+
+        return ansible_data
 
     def action_close(self) -> None:
         """Close create job template screen and save state"""

@@ -161,6 +161,7 @@ class CreateCredentialScreen(Screen):
         Binding("ctrl+s", "submit", "Submit", show=True),
         Binding("ctrl+l", "clear_form", "Clear", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -1011,3 +1012,110 @@ class CreateCredentialScreen(Screen):
     def action_quit(self) -> None:
         """Quit the application"""
         self.app.exit()
+
+    def action_export_task(self) -> None:
+        """Export credential as Ansible task using awx.awx.credential module"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import credential_to_ansible_task
+
+        # Build credential data with resolved names
+        credential_data = self._build_ansible_task_data()
+
+        # Convert to Ansible task YAML
+        yaml_str, notes = credential_to_ansible_task(credential_data)
+
+        # Show export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=yaml_str,
+                title="Export AP Task - Credential",
+                module_name="credential",
+                notes=notes,
+            )
+        )
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build credential data dict with resolved dropdown names for Ansible task export
+
+        Returns:
+            dict: Credential data with names instead of IDs where possible
+        """
+        # Get form values
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+
+        # Get organization ID and resolve to name
+        organization_id = self.query_one("#organization", Select).value
+        organization_name = None
+        if organization_id and organization_id is not Select.BLANK:
+            org_select = self.query_one("#organization", Select)
+            # Find the selected option's display name
+            for option in org_select._options:
+                if option[1] == organization_id:
+                    organization_name = option[0]
+                    break
+
+        # Get credential type ID and resolve to name
+        credential_type_id = self.query_one("#credential_type", Select).value
+        credential_type_name = None
+        if credential_type_id and credential_type_id is not Select.BLANK:
+            ct_select = self.query_one("#credential_type", Select)
+            # Find the selected option's display name
+            for option in ct_select._options:
+                if option[1] == credential_type_id:
+                    credential_type_name = option[0]
+                    break
+
+        # Build credential data
+        credential_data = {
+            "name": name,
+        }
+
+        if description:
+            credential_data["description"] = description
+
+        # Add organization (prefer name, fallback to ID)
+        if organization_name:
+            credential_data["organization_name"] = organization_name
+        elif organization_id and organization_id is not Select.BLANK:
+            credential_data["organization"] = organization_id
+
+        # Add credential type (prefer name, fallback to ID)
+        if credential_type_name:
+            credential_data["credential_type_name"] = credential_type_name
+        elif credential_type_id and credential_type_id is not Select.BLANK:
+            credential_data["credential_type"] = credential_type_id
+
+        # Collect inputs (sensitive data)
+        inputs = {}
+
+        # Try to get common input fields (these may or may not exist depending on credential type)
+        input_field_ids = [
+            "username",
+            "password",
+            "ssh_key_data",
+            "ssh_key_unlock",
+            "vault_password",
+            "vault_id",
+            "become_method",
+            "become_username",
+            "become_password",
+            "authorize",
+            "authorize_password",
+        ]
+
+        for field_id in input_field_ids:
+            try:
+                widget = self.query_one(f"#{field_id}", Input)
+                value = widget.value.strip()
+                if value:
+                    inputs[field_id] = value
+            except Exception:
+                # Field doesn't exist for this credential type, skip
+                pass
+
+        # Add inputs if any were found
+        if inputs:
+            credential_data["inputs"] = inputs
+
+        return credential_data

@@ -156,6 +156,7 @@ class CreateInventoryScreen(Screen):
         Binding("ctrl+s", "submit", "Submit", show=True),
         Binding("ctrl+l", "clear_form", "Clear", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -665,3 +666,74 @@ class CreateInventoryScreen(Screen):
     def action_quit(self) -> None:
         """Quit the application"""
         self.app.exit()
+
+    def action_export_task(self) -> None:
+        """Export inventory as Ansible task using awx.awx.inventory module"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import inventory_to_ansible_task
+
+        # Build inventory data with resolved names
+        inventory_data = self._build_ansible_task_data()
+
+        # Convert to Ansible task YAML
+        yaml_str, notes = inventory_to_ansible_task(inventory_data)
+
+        # Show export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=yaml_str,
+                title="Export AP Task - Inventory",
+                module_name="inventory",
+                notes=notes,
+            )
+        )
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build inventory data dict with resolved dropdown names for Ansible task export
+
+        Returns:
+            dict: Inventory data with names instead of IDs where possible
+        """
+        # Get form values
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+
+        # Get organization ID and resolve to name
+        organization_id = self.query_one("#organization", Select).value
+        organization_name = None
+        if organization_id and organization_id is not Select.BLANK:
+            org_select = self.query_one("#organization", Select)
+            # Find the selected option's display name
+            for option in org_select._options:
+                if option[1] == organization_id:
+                    organization_name = option[0]
+                    break
+
+        # Get variables
+        variables_text = self.query_one("#variables_area", TextArea).text.strip()
+        variables_dict = None
+        if variables_text:
+            try:
+                variables_dict = json.loads(variables_text)
+            except json.JSONDecodeError:
+                pass  # Ignore invalid JSON for export
+
+        # Build inventory data
+        inventory_data = {
+            "name": name,
+        }
+
+        if description:
+            inventory_data["description"] = description
+
+        # Add organization (prefer name, fallback to ID)
+        if organization_name:
+            inventory_data["organization_name"] = organization_name
+        elif organization_id and organization_id is not Select.BLANK:
+            inventory_data["organization"] = organization_id
+
+        # Add variables if valid
+        if variables_dict:
+            inventory_data["variables"] = variables_dict
+
+        return inventory_data

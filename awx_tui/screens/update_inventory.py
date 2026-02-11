@@ -157,6 +157,7 @@ class UpdateInventoryScreen(Screen):
         Binding("ctrl+x", "toggle_enabled", "Toggle Enabled", show=True),
         Binding("enter", "edit_host", "Edit Host", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
+        Binding("ctrl+e", "export_task", "Export AP Task", show=True),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
 
@@ -867,6 +868,114 @@ class UpdateInventoryScreen(Screen):
     def action_quit(self) -> None:
         """Quit the application"""
         self.app.exit()
+
+    def action_export_task(self) -> None:
+        """Export inventory and all hosts as Ansible tasks"""
+        from awx_tui.modals.task_export import TaskExportModal
+        from awx_tui.utils.ansible_mapper import host_to_ansible_task, inventory_to_ansible_task
+
+        # Build inventory data with resolved names
+        inventory_data = self._build_ansible_task_data()
+
+        # Convert inventory to Ansible task YAML
+        inventory_yaml, inventory_notes = inventory_to_ansible_task(inventory_data)
+
+        # Combine all YAML and notes
+        all_yaml_parts = [inventory_yaml]
+        all_notes = list(inventory_notes)
+
+        # Add all hosts
+        inventory_name = inventory_data.get("name", "")
+        if self.hosts_data:
+            all_notes.append(f"Inventory contains {len(self.hosts_data)} host(s)")
+
+            for host in self.hosts_data:
+                # Build host data with inventory reference
+                host_data = {
+                    "name": host.get("name", ""),
+                    "inventory_name": inventory_name,  # Reference the inventory by name
+                }
+
+                # Add optional fields
+                if host.get("description"):
+                    host_data["description"] = host["description"]
+
+                if host.get("enabled") is False:
+                    host_data["enabled"] = False
+
+                # Parse variables if present
+                variables = host.get("variables")
+                if variables:
+                    try:
+                        import json
+
+                        if isinstance(variables, str):
+                            host_data["variables"] = json.loads(variables)
+                        else:
+                            host_data["variables"] = variables
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # Convert host to YAML
+                host_yaml, host_notes = host_to_ansible_task(host_data)
+                all_yaml_parts.append(host_yaml)
+                all_notes.extend(host_notes)
+
+        # Combine all YAML parts
+        combined_yaml = "\n".join(all_yaml_parts)
+
+        # Show export modal
+        self.app.push_screen(
+            TaskExportModal(
+                task_yaml=combined_yaml,
+                title="Export AP Task - Inventory + Hosts",
+                module_name="inventory",
+                notes=all_notes,
+            )
+        )
+
+    def _build_ansible_task_data(self) -> dict:
+        """Build inventory data dict with resolved names for Ansible task export
+
+        Returns:
+            dict: Inventory data with names instead of IDs where possible
+        """
+        # Get form values
+        name = self.query_one("#name", Input).value.strip()
+        description = self.query_one("#description", Input).value.strip()
+
+        # Get organization name from original_data
+        organization_name = None
+        if "summary_fields" in self.original_data:
+            org_summary = self.original_data["summary_fields"].get("organization", {})
+            organization_name = org_summary.get("name")
+
+        # Get variables
+        variables_text = self.query_one("#variables_area", TextArea).text.strip()
+        variables_dict = None
+        if variables_text:
+            try:
+                variables_dict = json.loads(variables_text)
+            except json.JSONDecodeError:
+                pass  # Ignore invalid JSON for export
+
+        # Build inventory data
+        inventory_data = {
+            "name": name,
+        }
+
+        if description:
+            inventory_data["description"] = description
+
+        # Add organization name if available
+        if organization_name:
+            inventory_data["organization_name"] = organization_name
+
+        # Add variables if valid
+        if variables_dict:
+            inventory_data["variables"] = variables_dict
+
+        return inventory_data
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         """Enable/disable Remove Host button based on selection"""
