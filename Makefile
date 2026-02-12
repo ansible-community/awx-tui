@@ -168,6 +168,21 @@ coverage:
 	@echo ""
 	@echo "📊 Coverage report generated in htmlcov/index.html"
 
+# Install formatters and linters
+.venv/bin/ruff: .venv requirements-lint.txt
+	@echo "Installing linting dependencies..."
+	.venv/bin/pip install -r requirements-lint.txt
+
+lint: .venv/bin/ruff
+	@echo "Checking Linting and Formatting..."
+	@.venv/bin/ruff check awx_tui/ tests/
+	@.venv/bin/black --check awx_tui tests/
+
+lint-fix: .venv/bin/ruff
+	@echo "Checking and Fixing Linting and Formatting..."
+	@.venv/bin/ruff check awx_tui/ tests/ --fix
+	@.venv/bin/black awx_tui tests/
+
 clean:
 	@echo "Cleaning up..."
 	rm -rf .venv
