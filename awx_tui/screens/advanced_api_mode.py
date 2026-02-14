@@ -215,7 +215,7 @@ class AdvancedAPIModeScreen(Screen):
         if "response_body" in data:
             response_body = self.query_one("#response-body", TextArea)
             resp_text = data["response_body"]
-            if isinstance(resp_text, dict):
+            if isinstance(resp_text, (dict, list)):
                 resp_text = json.dumps(resp_text, indent=2)
             response_body.text = resp_text
 
