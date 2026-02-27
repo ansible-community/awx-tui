@@ -13,7 +13,7 @@ authors = [
     {name = "John Mitchell", email = "jmitchel@redhat.com"},
     {name = "John Barker", email = "jobarker@redhat.com"}
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -22,11 +22,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
@@ -77,8 +75,8 @@ markers = [
 ]
 
 [tool.ruff]
-# Target Python 3.8+
-target-version = "py38"
+# Target Python 3.12+
+target-version = "py312"
 line-length = 120
 
 # Exclude common directories

@@ -25,17 +25,17 @@ For more information about communication, see the [Ansible communication guide](
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![Multi-Instance Selection](./img/001-awx-tui-multi-instances.png) | ![Classic Dashboard](./img/002-awx-tui-classic-dashboard-v1.png) |
-| ![Sleek Dashboard](./img/003-awx-tui-sleek-dashboard-v1.png) | ![Historic Jobs](./img/004-awx-tui-historic-jobs.png) |
-| ![Active Jobs](./img/005-awx-tui-active-jobs.png) | ![Projects](./img/006-awx-tui-projects.png) |
-| ![Job Templates](./img/007-awx-tui-job-templates.png) | ![Inventories](./img/008-awx-tui-inventories.png) |
-| ![Debug Console](./img/009-awx-tui-debug-console.png) | ![Advanced API Mode](./img/010-awx-tui-advanced-api-mode.png) |
-| ![Create Mode](./img/011-awx-tui-create-mode.png) | ![Create Job Template](./img/012-awx-tui-create-job-template.png) |
-| ![Create Project](./img/013-awx-tui-create-project.png) | ![API Payload Preview](./img/014-awx-tui-create-project-api-payload-preview.png) |
-| ![Job Logs](./img/015-awx-tui-job-logs.png) | ![Job Events](./img/016-awx-tui-job-events.png) |
-| ![Launch Job](./img/017-awx-tui-launch-job.png) | ![Sync Project](./img/018-awx-tui-sync-project.png) |
+|                                                                    |                                                                                  |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| ![Multi-Instance Selection](./img/001-awx-tui-multi-instances.png) | ![Classic Dashboard](./img/002-awx-tui-classic-dashboard-v1.png)                 |
+| ![Sleek Dashboard](./img/003-awx-tui-sleek-dashboard-v1.png)       | ![Historic Jobs](./img/004-awx-tui-historic-jobs.png)                            |
+| ![Active Jobs](./img/005-awx-tui-active-jobs.png)                  | ![Projects](./img/006-awx-tui-projects.png)                                      |
+| ![Job Templates](./img/007-awx-tui-job-templates.png)              | ![Inventories](./img/008-awx-tui-inventories.png)                                |
+| ![Debug Console](./img/009-awx-tui-debug-console.png)              | ![Advanced API Mode](./img/010-awx-tui-advanced-api-mode.png)                    |
+| ![Create Mode](./img/011-awx-tui-create-mode.png)                  | ![Create Job Template](./img/012-awx-tui-create-job-template.png)                |
+| ![Create Project](./img/013-awx-tui-create-project.png)            | ![API Payload Preview](./img/014-awx-tui-create-project-api-payload-preview.png) |
+| ![Job Logs](./img/015-awx-tui-job-logs.png)                        | ![Job Events](./img/016-awx-tui-job-events.png)                                  |
+| ![Launch Job](./img/017-awx-tui-launch-job.png)                    | ![Sync Project](./img/018-awx-tui-sync-project.png)                              |
 
 ## AI-Assisted Project
 
@@ -51,7 +51,7 @@ For more information about communication, see the [Ansible communication guide](
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.12+
 - AWX 21.x+
 - Linux, macOS, or WSL2 on Windows
 - Terminal size: **188x40** (188 columns × 40 rows) recommended for optimal display
@@ -79,6 +79,7 @@ source ~/.venv-awx-tui/bin/activate
 ```
 
 ### Install Python dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -93,6 +94,7 @@ python -m awx_tui.main
 > If you do not have any awx instances configured the awx-tui will still launch, but will have no awx instances to target.
 
 ### Configure an AWX instance connection via Environment Variables and launch awx-tui
+
 ```bash
 export AWX_HOST=https://awx.example.com
 export AWX_TOKEN=your-api-token-here
@@ -101,6 +103,7 @@ python -m awx_tui.main
 ```
 
 ### Configure an AWX instance connection via command-line arguments and launch awx-tui
+
 ```bash
 python -m awx_tui.main --host https://awx.example.com --token your-token
 ```
@@ -180,7 +183,7 @@ See [config.yaml.example](./config.yaml.example) for complete configuration guid
 
 ---
 
-## Development 
+## Development
 
 ### Quick Start
 

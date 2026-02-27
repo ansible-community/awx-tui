@@ -2,9 +2,9 @@ name: PR Validation
 
 on:
   push:
-    branches: [ devel ]
+    branches: [devel]
   pull_request:
-    branches: [ devel ]
+    branches: [devel]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
@@ -17,10 +17,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.12"
 
       - name: Install linting tools
         run: |
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ["3.12", "3.13", "3.14"]
       fail-fast: false
 
     steps:
@@ -75,10 +75,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.12"
 
       - name: Test clean installation
         run: |
