@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import httpx
 import yaml
 
 
@@ -56,6 +57,12 @@ class InstanceConfig:
         # Validate URL
         if not self.url.startswith(("http://", "https://")):
             raise ValueError(f"URL must start with http:// or https://, got: {self.url}")
+
+        # Normalize the URL using httpx (same normalization httpx applies to response.url).
+        # This strips redundant default ports (https:443, http:80) so that error-path
+        # log entries (which use self.config.url) are consistent with success-path log
+        # entries (which use str(response.url) from httpx).
+        self.url = str(httpx.URL(self.url))
 
         # Validate auth method (if provided)
         if self.auth_method is not None and self.auth_method not in ("token", "password"):

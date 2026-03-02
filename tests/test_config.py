@@ -101,6 +101,42 @@ class TestInstanceConfig:
         with pytest.raises(ValueError, match="Password is required"):
             instance.validate()
 
+    def test_url_normalizes_default_https_port(self):
+        """Test that https with explicit port 443 is normalized"""
+        instance = InstanceConfig(
+            name="test-awx",
+            url="https://awx.example.com:443",
+            auth_method="token",
+            username="admin",
+            token="test-token-123",
+        )
+        instance.validate()
+        assert instance.url == "https://awx.example.com"
+
+    def test_url_normalizes_default_http_port(self):
+        """Test that http with explicit port 80 is normalized"""
+        instance = InstanceConfig(
+            name="test-awx",
+            url="http://awx.example.com:80",
+            auth_method="token",
+            username="admin",
+            token="test-token-123",
+        )
+        instance.validate()
+        assert instance.url == "http://awx.example.com"
+
+    def test_url_preserves_non_default_port(self):
+        """Test that non-default ports are preserved"""
+        instance = InstanceConfig(
+            name="test-awx",
+            url="https://awx.example.com:8443",
+            auth_method="token",
+            username="admin",
+            token="test-token-123",
+        )
+        instance.validate()
+        assert instance.url == "https://awx.example.com:8443"
+
 
 class TestConfigManager:
     """Test ConfigManager functionality"""
