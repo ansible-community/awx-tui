@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from httpx import URL
 import yaml
+from httpx import URL
 
 
 @dataclass
