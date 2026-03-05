@@ -42,7 +42,7 @@ For more information about communication, see the [Ansible communication guide](
 **This project was substantially coded by Large Language Models (LLMs) with human review.**
 
 - **AI Attribution (AIA):** EAI Hin R Claude Code v1.0 (Claude Sonnet 4.5)
-- **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>
+- **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>, Daniel Brennand <dbrenuk@redhat.com>
 - **AWX TUI Logo AI Attribution (AIA):** EAI Hin R Gemini v1.0 (Gemini 3)
 
 > **Note:** This work was mostly AI-generated with human review and may not be subject to traditional copyright protection in some jurisdictions.
