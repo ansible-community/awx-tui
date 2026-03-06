@@ -24,6 +24,31 @@ def _prune_api_log(api_call_log: Optional[list], max_entries: int = 1000) -> Non
             api_call_log[:] = api_call_log[-max_entries:]
 
 
+def _log_ping_connection_event(
+    connection_event_log: Optional[list],
+    instance_name: Optional[str],
+    event: str,
+    details: str,
+    max_entries: int = 1000,
+) -> None:
+    """Log a connection event from the ping checker"""
+    if connection_event_log is None:
+        return
+
+    connection_event_log.append(
+        {
+            "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
+            "instance": instance_name or "unknown",
+            "event": event,
+            "details": details,
+            "pool_snapshot": None,
+        }
+    )
+
+    if max_entries > 0 and len(connection_event_log) > max_entries:
+        connection_event_log[:] = connection_event_log[-max_entries:]
+
+
 async def check_instance_ping(
     url: str,
     api_base_path: str = "/api/v2",
@@ -32,6 +57,8 @@ async def check_instance_ping(
     api_call_log: Optional[list] = None,
     instance_name: Optional[str] = None,
     max_log_entries: int = 1000,
+    connection_event_log: Optional[list] = None,
+    shared_client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """
     Check AWX instance connectivity via ping endpoint
@@ -43,6 +70,8 @@ async def check_instance_ping(
         timeout: Request timeout in seconds
         api_call_log: Optional list to log API calls for debug console
         instance_name: Optional instance name for debug logging
+        connection_event_log: Optional list to log connection pool events
+        shared_client: Optional persistent httpx.AsyncClient to reuse (ping-pool)
 
     Returns:
         Dictionary with:
@@ -57,67 +86,47 @@ async def check_instance_ping(
 
     result = {"status": "unknown", "version": "Unknown", "response_time_ms": 0, "response_time": "N/A", "error": None}
 
+    # Use shared client if provided, otherwise create a throwaway one
+    client = shared_client
+    owns_client = False
+    if client is None:
+        client = httpx.AsyncClient(verify=verify_ssl, timeout=timeout)
+        owns_client = True
+
     try:
-        async with httpx.AsyncClient(verify=verify_ssl, timeout=timeout) as client:
-            response = await client.get(ping_url)
+        response = await client.get(ping_url)
 
-            # Calculate response time
-            elapsed_ms = int((time.time() - start_time) * 1000)
-            result["response_time_ms"] = elapsed_ms
+        # Calculate response time
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        result["response_time_ms"] = elapsed_ms
 
-            # Format response time
-            if elapsed_ms < 1000:
-                result["response_time"] = f"{elapsed_ms}ms"
-            else:
-                result["response_time"] = f"{elapsed_ms / 1000:.1f}s"
+        # Format response time
+        if elapsed_ms < 1000:
+            result["response_time"] = f"{elapsed_ms}ms"
+        else:
+            result["response_time"] = f"{elapsed_ms / 1000:.1f}s"
 
-            # Determine status based on response time
-            if elapsed_ms < 1000:
-                result["status"] = "online"
-            elif elapsed_ms < 5000:
-                result["status"] = "slow"
-            elif elapsed_ms < 10000:
-                result["status"] = "very_slow"
-            else:
-                result["status"] = "offline"
+        # Determine status based on response time
+        if elapsed_ms < 1000:
+            result["status"] = "online"
+        elif elapsed_ms < 5000:
+            result["status"] = "slow"
+        elif elapsed_ms < 10000:
+            result["status"] = "very_slow"
+        else:
+            result["status"] = "offline"
 
-            # Parse response for version - all 2xx codes are success
-            if 200 <= response.status_code < 300:
-                try:
-                    data = response.json()
-                    result["version"] = data.get("version", "Unknown")
+        # Parse response for version - all 2xx codes are success
+        if 200 <= response.status_code < 300:
+            try:
+                data = response.json()
+                result["version"] = data.get("version", "Unknown")
 
-                    # Log successful API call
-                    if api_call_log is not None:
-                        api_call_log.append(
-                            {
-                                "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
-                                "method": "GET",
-                                "instance": url,
-                                "instance_name": instance_name or "unknown",
-                                "endpoint": f"{api_base_path}/ping/",
-                                "url": ping_url,
-                                "status_code": response.status_code,
-                                "duration_ms": elapsed_ms,
-                                "size_bytes": len(response.content),
-                                "request_headers": dict(response.request.headers),
-                                "response_headers": dict(response.headers),
-                                "content_preview": response.text[:500],
-                                "response_content_full": response.text,
-                            }
-                        )
-                        _prune_api_log(api_call_log, max_log_entries)
-                except Exception as e:
-                    result["error"] = f"Failed to parse response: {e}"
-            else:
-                result["status"] = "error"
-                result["error"] = f"HTTP {response.status_code}"
-
-                # Log error API call
+                # Log successful API call
                 if api_call_log is not None:
                     api_call_log.append(
                         {
-                            "timestamp": time.strftime("%H:%M:%S"),
+                            "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
                             "method": "GET",
                             "instance": url,
                             "instance_name": instance_name or "unknown",
@@ -129,10 +138,36 @@ async def check_instance_ping(
                             "request_headers": dict(response.request.headers),
                             "response_headers": dict(response.headers),
                             "content_preview": response.text[:500],
-                            "error": f"HTTP {response.status_code}",
+                            "response_content_full": response.text,
                         }
                     )
                     _prune_api_log(api_call_log, max_log_entries)
+            except Exception as e:
+                result["error"] = f"Failed to parse response: {e}"
+        else:
+            result["status"] = "error"
+            result["error"] = f"HTTP {response.status_code}"
+
+            # Log error API call
+            if api_call_log is not None:
+                api_call_log.append(
+                    {
+                        "timestamp": time.strftime("%H:%M:%S"),
+                        "method": "GET",
+                        "instance": url,
+                        "instance_name": instance_name or "unknown",
+                        "endpoint": f"{api_base_path}/ping/",
+                        "url": ping_url,
+                        "status_code": response.status_code,
+                        "duration_ms": elapsed_ms,
+                        "size_bytes": len(response.content),
+                        "request_headers": dict(response.request.headers),
+                        "response_headers": dict(response.headers),
+                        "content_preview": response.text[:500],
+                        "error": f"HTTP {response.status_code}",
+                    }
+                )
+                _prune_api_log(api_call_log, max_log_entries)
 
     except httpx.TimeoutException:
         elapsed_ms = int((time.time() - start_time) * 1000)
@@ -208,5 +243,10 @@ async def check_instance_ping(
                 }
             )
             _prune_api_log(api_call_log)
+
+    finally:
+        # Only close the client if we created it (throwaway)
+        if owns_client:
+            await client.aclose()
 
     return result

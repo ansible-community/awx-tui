@@ -75,7 +75,7 @@ class TheLoafScreen(Screen):
         content-align: center middle;
         text-style: bold;
         color: $accent;
-        padding: 1;
+        padding: 0;
     }
 
     #loaf_content {

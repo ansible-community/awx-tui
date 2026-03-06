@@ -6,6 +6,8 @@ Manages multiple AWX instances and their API clients.
 
 from typing import Dict, List, Optional, Union
 
+import httpx
+
 from awx_tui.client import AWXClient
 from awx_tui.config import AppConfig, InstanceConfig
 from awx_tui.mock_data import MOCK_INSTANCES, MockAWXClient
@@ -27,7 +29,13 @@ class InstanceManager:
     - Supports mock mode with test instances
     """
 
-    def __init__(self, config: AppConfig, mock_mode: bool = False, api_call_log: Optional[list] = None):
+    def __init__(
+        self,
+        config: AppConfig,
+        mock_mode: bool = False,
+        api_call_log: Optional[list] = None,
+        connection_event_log: Optional[list] = None,
+    ):
         """
         Initialize instance manager
 
@@ -35,12 +43,15 @@ class InstanceManager:
             config: Application configuration
             mock_mode: If True, use mock clients instead of real AWX
             api_call_log: Optional list to log API calls for debug console
+            connection_event_log: Optional list to log connection pool events
         """
         self.config = config
         self.mock_mode = mock_mode
         self.api_call_log = api_call_log
+        self.connection_event_log = connection_event_log
         self.clients: Dict[str, Union[AWXClient, MockAWXClient]] = {}
         self.current_instance: Optional[str] = None
+        self.ping_client: Optional[httpx.AsyncClient] = None
 
         # Initialize instances
         if mock_mode:
@@ -186,7 +197,12 @@ class InstanceManager:
         # If client is an InstanceConfig (real mode), create AWXClient
         if isinstance(client, InstanceConfig):
             # Create and cache the AWXClient
-            awx_client = AWXClient(client, api_call_log=self.api_call_log, app_config=self.config)
+            awx_client = AWXClient(
+                client,
+                api_call_log=self.api_call_log,
+                app_config=self.config,
+                connection_event_log=self.connection_event_log,
+            )
             self.clients[instance_name] = awx_client
             return awx_client
 
@@ -312,6 +328,35 @@ class InstanceManager:
 
         # MockAWXClient doesn't need async context
         return True
+
+    async def get_ping_client(self) -> httpx.AsyncClient:
+        """Get or create the persistent ping-pool client"""
+        if self.ping_client is None or self.ping_client.is_closed:
+            from awx_tui.ping_checker import _log_ping_connection_event
+
+            self.ping_client = httpx.AsyncClient(
+                verify=False,
+                timeout=10.0,
+                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+            )
+            _log_ping_connection_event(
+                self.connection_event_log, "ping-pool", "POOL_CREATED", "max_connections=10, max_keepalive=5"
+            )
+        return self.ping_client
+
+    async def close_all_clients(self) -> None:
+        """Close all persistent AWXClient sessions and ping pool (for app shutdown)"""
+        for client in self.clients.values():
+            if isinstance(client, AWXClient):
+                await client.close()
+        if self.ping_client and not self.ping_client.is_closed:
+            from awx_tui.ping_checker import _log_ping_connection_event
+
+            _log_ping_connection_event(
+                self.connection_event_log, "ping-pool", "POOL_CLOSED", "Session explicitly closed"
+            )
+            await self.ping_client.aclose()
+            self.ping_client = None
 
     def get_instance_display_name(self, instance_name: Optional[str] = None) -> str:
         """

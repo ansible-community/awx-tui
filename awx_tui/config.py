@@ -29,6 +29,8 @@ class InstanceConfig:
     api_base_path: str = "/api/v2"
     description: str = ""
     dashboard: str = "classic"  # Dashboard layout to use for this instance
+    pool_max_connections: Optional[int] = None  # Per-instance override (default: from preferences)
+    pool_max_keepalive_connections: Optional[int] = None  # Per-instance override (default: from preferences)
     last_status: Optional[str] = None
     last_checked: Optional[str] = None
     last_response_time: Optional[str] = None
@@ -107,6 +109,9 @@ class AppConfig:
             "job_detail_auto_follow": True,
             "show_instance_in_header": True,
             "mock_mode": False,
+            "pool_max_connections": 20,
+            "pool_max_keepalive_connections": 10,
+            "network_queue_refresh_interval": 1,
         }
     )
 
@@ -200,6 +205,8 @@ class ConfigManager:
                     api_base_path=instance_data.get("api_base_path", "/api/v2"),
                     description=instance_data.get("description", ""),
                     dashboard=instance_data.get("dashboard", "classic"),
+                    pool_max_connections=instance_data.get("pool_max_connections"),
+                    pool_max_keepalive_connections=instance_data.get("pool_max_keepalive_connections"),
                     last_status=instance_data.get("last_status"),
                     last_checked=instance_data.get("last_checked"),
                     last_response_time=instance_data.get("last_response_time"),

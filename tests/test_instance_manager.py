@@ -366,3 +366,41 @@ class TestInstanceManagerAsync:
         result = await manager.test_connection()
 
         assert result is False
+
+
+@pytest.mark.asyncio
+class TestInstanceManagerCleanup:
+    """Test client cleanup and session lifecycle"""
+
+    async def test_close_all_clients(self):
+        """Test close_all_clients closes all AWXClient sessions"""
+        config = AppConfig()
+        config.instances["awx-1"] = InstanceConfig(
+            name="awx-1", url="https://awx1.example.com", auth_method="token", username="admin", token="token1"
+        )
+        config.instances["awx-2"] = InstanceConfig(
+            name="awx-2", url="https://awx2.example.com", auth_method="token", username="admin", token="token2"
+        )
+        manager = InstanceManager(config, mock_mode=False)
+
+        # Get clients to trigger creation and open sessions
+        manager.switch_to("awx-1")
+        client1 = manager.get_current_client()
+        async with client1:
+            pass  # Opens the session
+
+        manager.switch_to("awx-2")
+        client2 = manager.get_current_client()
+        async with client2:
+            pass  # Opens the session
+
+        # Both sessions should be open
+        assert client1.session is not None
+        assert client2.session is not None
+
+        # Close all
+        await manager.close_all_clients()
+
+        # Sessions should be torn down
+        assert client1.session is None
+        assert client2.session is None

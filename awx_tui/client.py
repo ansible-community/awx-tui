@@ -81,6 +81,7 @@ class AWXClient:
         api_call_log: Optional[list] = None,
         timeout: float = 30.0,
         app_config: Optional["AppConfig"] = None,
+        connection_event_log: Optional[list] = None,
     ):
         """
         Initialize AWX client
@@ -90,13 +91,28 @@ class AWXClient:
             api_call_log: Optional list to log API calls for debug console
             timeout: Request timeout in seconds (default: 30)
             app_config: Optional application configuration for preferences
+            connection_event_log: Optional list to log connection pool events
         """
         self.config = instance_config
         self.api_call_log = api_call_log
+        self.connection_event_log = connection_event_log
         self.timeout = timeout
         self.app_config = app_config
         self.session: Optional[httpx.AsyncClient] = None
         self.version_info: Optional[AWXVersion] = None
+
+        # Pool limits: runtime overlay > instance config > global preferences > hardcoded
+        # Runtime overlay is set by modifying these attributes directly
+        global_max = 20
+        global_keepalive = 10
+        if app_config:
+            global_max = app_config.preferences.get("pool_max_connections", 20)
+            global_keepalive = app_config.preferences.get("pool_max_keepalive_connections", 10)
+
+        self.max_connections = getattr(instance_config, "pool_max_connections", None) or global_max
+        self.max_keepalive_connections = (
+            getattr(instance_config, "pool_max_keepalive_connections", None) or global_keepalive
+        )
 
         # Build authentication headers
         self.headers = {
@@ -110,27 +126,87 @@ class AWXClient:
         # Password auth uses HTTP Basic Auth (handled in session creation)
 
     async def __aenter__(self):
-        """Async context manager entry"""
-        # Create httpx.AsyncClient session
-        auth = None
-        if self.config.auth_method == "password":
-            auth = httpx.BasicAuth(username=self.config.username, password=self.config.password or "")
+        """Async context manager entry - creates session only if not already open"""
+        if self.session is None or self.session.is_closed:
+            auth = None
+            if self.config.auth_method == "password":
+                auth = httpx.BasicAuth(username=self.config.username, password=self.config.password or "")
 
-        self.session = httpx.AsyncClient(
-            base_url=self.config.url,
-            headers=self.headers,
-            auth=auth,
-            verify=self.config.verify_ssl,
-            timeout=self.timeout,
-            follow_redirects=True,
-        )
+            self.session = httpx.AsyncClient(
+                base_url=self.config.url,
+                headers=self.headers,
+                auth=auth,
+                verify=self.config.verify_ssl,
+                timeout=self.timeout,
+                follow_redirects=True,
+                limits=httpx.Limits(
+                    max_connections=self.max_connections,
+                    max_keepalive_connections=self.max_keepalive_connections,
+                ),
+            )
+
+            self._log_connection_event(
+                "POOL_CREATED",
+                f"max_connections={self.max_connections}, max_keepalive={self.max_keepalive_connections}",
+            )
 
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if self.session:
+        """Async context manager exit - no-op to keep session persistent"""
+        # Session stays open for reuse across refresh cycles.
+        # Use close() for explicit teardown.
+        pass
+
+    async def close(self):
+        """Explicitly close the persistent httpx session"""
+        if self.session and not self.session.is_closed:
+            self._log_connection_event("POOL_CLOSED", "Session explicitly closed")
             await self.session.aclose()
+        self.session = None
+
+    def _get_pool_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Capture current connection pool state"""
+        if not self.session or self.session.is_closed:
+            return None
+        try:
+            pool = self.session._transport._pool
+            connections = pool.connections
+            idle = sum(1 for c in connections if c.is_idle())
+            active = len(connections) - idle
+            return {
+                "total": len(connections),
+                "idle": idle,
+                "active": active,
+                "max_connections": pool._max_connections,
+                "max_keepalive": pool._max_keepalive_connections,
+            }
+        except (AttributeError, Exception):
+            return None
+
+    def _log_connection_event(self, event: str, details: str) -> None:
+        """Log a connection pool event to the connection event log"""
+        if self.connection_event_log is None:
+            return
+
+        instance_name = self.config.name if (hasattr(self.config, "name") and self.config.name) else "unknown"
+
+        entry = {
+            "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
+            "instance": instance_name,
+            "event": event,
+            "details": details,
+            "pool_snapshot": self._get_pool_snapshot(),
+        }
+
+        self.connection_event_log.append(entry)
+
+        # Ring buffer - cap at 1000 entries
+        max_entries = 1000
+        if self.app_config:
+            max_entries = self.app_config.preferences.get("network_queue_max_entries", 1000)
+        if max_entries > 0 and len(self.connection_event_log) > max_entries:
+            self.connection_event_log[:] = self.connection_event_log[-max_entries:]
 
     def _mask_sensitive_data(self, data: str) -> str:
         """
@@ -409,6 +485,7 @@ class AWXClient:
                 duration_ms=int((datetime.now() - start_time).total_seconds() * 1000),
                 error=f"Connection pool exhausted: {str(e)}",
             )
+            self._log_connection_event("POOL_EXHAUSTED", f"PoolTimeout on {method} {endpoint}: {e}")
             raise AWXClientError(
                 f"Connection pool exhausted for {self.config.url}. "
                 f"Too many concurrent requests. Try again in a moment."
@@ -429,6 +506,7 @@ class AWXClient:
                     duration_ms=duration_ms,
                     error=f"Connection pool full: {error_msg}",
                 )
+                self._log_connection_event("POOL_EXHAUSTED", f"ConnectError on {method} {endpoint}: {error_msg}")
                 raise AWXClientError(
                     f"Too many concurrent connections to {self.config.url}. "
                     f"Connection pool exhausted. Wait for active requests to complete."

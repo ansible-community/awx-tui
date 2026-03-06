@@ -351,6 +351,11 @@ class InstanceSelectionScreen(Screen):
                 # Real instance - ping it
                 from awx_tui.ping_checker import check_instance_ping
 
+                # Get shared ping client from instance manager
+                shared_ping = None
+                if hasattr(self.app, "instance_manager") and self.app.instance_manager:
+                    shared_ping = await self.app.instance_manager.get_ping_client()
+
                 ping_result = await check_instance_ping(
                     url=config.url,
                     api_base_path=config.api_base_path,
@@ -359,6 +364,8 @@ class InstanceSelectionScreen(Screen):
                     api_call_log=self.app.api_call_log if hasattr(self.app, "api_call_log") else None,
                     instance_name=name,
                     max_log_entries=self.app.app_config.preferences.get("debug_console_max_entries", 1000),
+                    connection_event_log=getattr(self.app, "connection_event_log", None),
+                    shared_client=shared_ping,
                 )
 
                 status = ping_result["status"]

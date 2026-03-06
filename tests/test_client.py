@@ -111,17 +111,73 @@ class TestAWXClientContext:
             assert isinstance(client.session, httpx.AsyncClient)
 
     @pytest.mark.asyncio
-    async def test_context_manager_closes_session(self, token_instance):
-        """Test session closed on exit"""
+    async def test_session_persists_across_context_entries(self, token_instance):
+        """Test session is NOT recreated on repeated context entry (persistent session)"""
+        client = AWXClient(token_instance)
+
+        async with client:
+            session1 = client.session
+            assert session1 is not None
+
+        # Enter context again - should reuse same session
+        async with client:
+            session2 = client.session
+            assert session2 is session1
+
+    @pytest.mark.asyncio
+    async def test_session_not_closed_on_context_exit(self, token_instance):
+        """Test session remains open after exiting context manager"""
         client = AWXClient(token_instance)
 
         async with client:
             session = client.session
             assert session is not None
 
-        # Session should be closed after exit
-        # (httpx doesn't provide easy way to check if closed, so just verify it was set)
-        assert session is not None
+        # Session should still be open after context exit
+        assert client.session is not None
+        assert not client.session.is_closed
+
+    @pytest.mark.asyncio
+    async def test_explicit_close_closes_session(self, token_instance):
+        """Test explicit close() tears down the session"""
+        client = AWXClient(token_instance)
+
+        async with client:
+            assert client.session is not None
+
+        await client.close()
+
+        # Session should be None after close
+        assert client.session is None
+
+    @pytest.mark.asyncio
+    async def test_reopen_after_close(self, token_instance):
+        """Test entering context after close() creates a new session"""
+        client = AWXClient(token_instance)
+
+        async with client:
+            session1 = client.session
+
+        await client.close()
+        assert client.session is None
+
+        # Re-entering context should create a new session
+        async with client:
+            session2 = client.session
+            assert session2 is not None
+            assert session2 is not session1
+
+    @pytest.mark.asyncio
+    async def test_connection_pool_limits_configured(self, token_instance):
+        """Test httpx client has explicit connection pool limits"""
+        client = AWXClient(token_instance)
+
+        async with client:
+            pool = client.session._transport._pool
+            assert pool._max_connections == 20
+            assert pool._max_keepalive_connections == 10
+
+        await client.close()
 
     @pytest.mark.asyncio
     async def test_password_auth_uses_basic_auth(self, password_instance):
@@ -129,6 +185,7 @@ class TestAWXClientContext:
         async with AWXClient(password_instance) as client:
             # Session should have auth configured
             assert client.session.auth is not None
+        await client.close()
 
 
 class TestSensitiveDataMasking:

@@ -36,6 +36,7 @@ class AWXTUIApp(App):
         Binding("ctrl+d", "toggle_debug", "Debug", priority=True),
         Binding("ctrl+o", "the_loaf", "Loaf", priority=True),
         Binding("ctrl+t", "advanced_api_mode", "API Mode", priority=True),
+        Binding("ctrl+n", "the_network_queue", "Net Queue", priority=True),
         Binding("c", "create_mode", "Create", priority=True),
         Binding("i", "show_info", "Info"),
         Binding("?", "show_info", "Help"),
@@ -83,6 +84,9 @@ class AWXTUIApp(App):
 
         # Notification log for The Loaf
         self.notification_log = []
+
+        # Connection event log for The Network Queue
+        self.connection_event_log = []
 
         # Create mode state - persists form data until app close
         self.create_mode_state = {
@@ -202,7 +206,10 @@ class AWXTUIApp(App):
 
         # Initialize instance manager
         self.instance_manager = InstanceManager(
-            self.app_config, mock_mode=self.mock_mode, api_call_log=self.api_call_log
+            self.app_config,
+            mock_mode=self.mock_mode,
+            api_call_log=self.api_call_log,
+            connection_event_log=self.connection_event_log,
         )
 
         # Update title with current instance
@@ -314,6 +321,8 @@ class AWXTUIApp(App):
 
     def action_quit(self) -> None:
         """Quit the application"""
+        if self.instance_manager:
+            self.run_worker(self.instance_manager.close_all_clients())
         self.exit()
 
     def action_toggle_debug(self) -> None:
@@ -343,6 +352,17 @@ class AWXTUIApp(App):
 
         # Otherwise, open The Loaf
         self.push_screen(TheLoafScreen())
+
+    def action_the_network_queue(self) -> None:
+        """Open The Network Queue - connection pool debugger - do nothing if already open"""
+        from awx_tui.screens.the_network_queue import TheNetworkQueueScreen
+
+        # If The Network Queue is already the topmost screen, do nothing
+        if isinstance(self.screen, TheNetworkQueueScreen):
+            return
+
+        # Otherwise, open The Network Queue
+        self.push_screen(TheNetworkQueueScreen())
 
     def notify(
         self,
