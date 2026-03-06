@@ -4,8 +4,7 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "daily"
       time: "05:00"
       timezone: "Etc/UTC"
     versioning-strategy: increase-if-necessary
@@ -25,8 +24,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "daily"
       time: "05:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
