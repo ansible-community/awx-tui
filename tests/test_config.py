@@ -2,6 +2,8 @@
 Tests for configuration management
 """
 
+import os
+
 import pytest
 
 from awx_tui.config import AppConfig, ConfigManager, InstanceConfig
@@ -203,6 +205,9 @@ instances:
     description: Test instance
 """)
 
+        # Set secure permissions
+        config_file.chmod(0o600)
+
         # Set environment variable
         monkeypatch.setenv("TEST_TOKEN", "secret-token-from-env")
 
@@ -248,6 +253,9 @@ instances:
     verify_ssl: true
 """)
 
+        # Set secure permissions
+        config_file.chmod(0o600)
+
         # Set instance-specific override
         monkeypatch.setenv("AWX_TEST_AWX_TOKEN", "override-token")
 
@@ -271,6 +279,9 @@ instances:
       username: admin
     verify_ssl: true
 """)
+
+        # Set secure permissions
+        config_file.chmod(0o600)
 
         # Set generic token (fallback)
         monkeypatch.setenv("AWX_TOKEN", "fallback-token")
@@ -371,3 +382,166 @@ instances:
 
         # @env-vars should not be in loaded config (since env vars are gone)
         assert "@env-vars" not in config2.instances
+
+    def test_load_accepts_0600_permissions(self, tmp_path):
+        """Test that loading config with 0600 permissions succeeds"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config with valid content
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # Set secure permissions (0600)
+        config_file.chmod(0o600)
+
+        # Should load successfully
+        manager = ConfigManager(config_path=config_file)
+        config = manager.load()
+
+        assert "test-awx" in config.instances
+        assert config.instances["test-awx"].token == "test-token-123"
+
+    def test_load_rejects_0644_permissions(self, tmp_path):
+        """Test that loading config with 0644 permissions fails (world-readable)"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # Set insecure permissions (world-readable)
+        config_file.chmod(0o644)
+
+        # Should raise ValueError
+        manager = ConfigManager(config_path=config_file)
+        with pytest.raises(ValueError, match="insecure permissions"):
+            manager.load()
+
+    def test_load_rejects_0664_permissions(self, tmp_path):
+        """Test that loading config with 0664 permissions fails (group-writable)"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # Set insecure permissions (group-writable, world-readable)
+        config_file.chmod(0o664)
+
+        # Should raise ValueError
+        manager = ConfigManager(config_path=config_file)
+        with pytest.raises(ValueError, match="insecure permissions"):
+            manager.load()
+
+    def test_load_accepts_0400_permissions(self, tmp_path):
+        """Test that loading config with 0400 permissions succeeds (more restrictive)"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # Set more restrictive permissions (read-only by owner)
+        config_file.chmod(0o400)
+
+        # Should load successfully (0400 is more secure than 0600)
+        manager = ConfigManager(config_path=config_file)
+        config = manager.load()
+
+        assert "test-awx" in config.instances
+
+    def test_load_nonexistent_file_no_permission_check(self, tmp_path):
+        """Test that loading non-existent config doesn't raise permission error"""
+        config_file = tmp_path / "nonexistent.yaml"
+
+        # Should not raise permission error for non-existent file
+        manager = ConfigManager(config_path=config_file)
+        config = manager.load()
+
+        # Should return default config
+        assert len(config.instances) == 0
+
+    @pytest.mark.skipif(os.name != 'nt', reason="Windows-specific test")
+    def test_load_skips_permission_check_on_windows(self, tmp_path):
+        """Test that permission check is skipped on Windows"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # On Windows, permissions work differently
+        # This test just verifies the check is skipped
+        manager = ConfigManager(config_path=config_file)
+        config = manager.load()
+
+        assert "test-awx" in config.instances
+
+    def test_permission_error_message_includes_fix_command(self, tmp_path):
+        """Test that permission error includes chmod fix command"""
+        config_file = tmp_path / "config.yaml"
+
+        # Create config
+        config_file.write_text("""
+instances:
+  test-awx:
+    url: https://awx.example.com
+    auth:
+      method: token
+      username: admin
+      token: test-token-123
+    verify_ssl: true
+""")
+
+        # Set insecure permissions
+        config_file.chmod(0o644)
+
+        # Should raise error with fix command
+        manager = ConfigManager(config_path=config_file)
+        with pytest.raises(ValueError) as exc_info:
+            manager.load()
+
+        error_msg = str(exc_info.value)
+        assert "chmod 0600" in error_msg
+        assert str(config_file) in error_msg
+        assert "644" in error_msg

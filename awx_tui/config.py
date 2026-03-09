@@ -6,6 +6,7 @@ Handles loading, saving, and managing instance configurations.
 
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -167,6 +168,9 @@ class ConfigManager:
 
     def _load_from_file(self) -> AppConfig:
         """Load configuration from YAML file"""
+        # Validate file permissions before reading
+        self._validate_file_permissions()
+
         try:
             with open(self.config_path, "r") as f:
                 data = yaml.safe_load(f) or {}
@@ -530,3 +534,35 @@ class ConfigManager:
             self.config = self.load()
 
         return self.config.instances
+
+    def _validate_file_permissions(self) -> None:
+        """
+        Validate that config file has secure permissions (0600).
+
+        Checks that only the owner has read/write access, with no group
+        or other permissions. This prevents credential leakage to other
+        users on the system.
+
+        Raises:
+            ValueError: If file permissions allow group or other access
+        """
+        # Skip on Windows (different permission model)
+        if os.name == 'nt':
+            return
+
+        # Skip if file doesn't exist
+        if not self.config_path.exists():
+            return
+
+        # Get file permissions
+        file_stat = self.config_path.stat()
+        mode = file_stat.st_mode
+
+        # Check for any group or other permissions (security risk)
+        if mode & (stat.S_IRWXG | stat.S_IRWXO):
+            current_mode = oct(mode)[-3:]
+            raise ValueError(
+                f"Configuration file {self.config_path} has insecure permissions: {current_mode}\n"
+                f"For security, config file must not be readable by group or others.\n"
+                f"Fix with: chmod 0600 {self.config_path}"
+            )
