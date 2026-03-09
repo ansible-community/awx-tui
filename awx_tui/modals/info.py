@@ -91,11 +91,12 @@ class InfoModal(ModalScreen):
             yield Static(self._get_cowsay_version(), id="cowsay-version")
 
             # Info content - formatted with right-aligned labels
-            info_text = """            Authors:  Andrew Potozniak <potozniak@redhat.com>
+            info_text = """        Maintainers:  Andrew Potozniak <potozniak@redhat.com>
                       John Mitchell <jmitchel@redhat.com>
                       John Barker <jobarker@redhat.com>
+                      Daniel Brennand <dbrenuk@redhat.com>
             License:  MIT
-                AIA:  EAI Hin R Claude Code [Sonnet 4.5] v1.0
+                AIA:  EAI Hin R Claude Code [Sonnet, Opus] v1.0
          Repository:  github.com/ansible-community/awx-tui
 
 """
