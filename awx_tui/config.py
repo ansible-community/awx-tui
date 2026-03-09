@@ -561,8 +561,9 @@ class ConfigManager:
         # Check for any group or other permissions (security risk)
         if mode & (stat.S_IRWXG | stat.S_IRWXO):
             current_mode = oct(mode)[-3:]
+            abs_path = self.config_path.resolve()
             raise ValueError(
-                f"Configuration file {self.config_path} has insecure permissions: {current_mode}\n"
+                f"Configuration file {abs_path} has insecure permissions: {current_mode}\n"
                 f"For security, config file must not be readable by group or others.\n"
-                f"Fix with: chmod 0600 {self.config_path}"
+                f"Fix with: chmod 0600 {abs_path}"
             )

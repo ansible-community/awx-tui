@@ -543,5 +543,5 @@ instances:
 
         error_msg = str(exc_info.value)
         assert "chmod 0600" in error_msg
-        assert str(config_file) in error_msg
+        assert str(config_file.resolve()) in error_msg  # Check for absolute path
         assert "644" in error_msg
