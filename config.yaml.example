@@ -23,6 +23,8 @@ instances:
     verify_ssl: true                        # Optional: Verify SSL certs (default: true)
     dashboard: classic                      # Optional: Dashboard layout ('classic' or 'sleek') (default: classic)
     description: "Development AWX 2"        # Optional: Human-readable description
+    # pool_max_connections: 20              # Optional: Per-instance max pool connections (default: from preferences)
+    # pool_max_keepalive_connections: 10    # Optional: Per-instance max keepalive connections (default: from preferences)
 
   # Example: Password-based authentication
   dev1:
@@ -83,6 +85,11 @@ preferences:
   # --- Instance Management Settings ---
   instance_selection_refresh_interval: 5          # Instance health check interval (default: 5)
   show_instance_in_header: true                   # Show active instance in header (default: true)
+
+  # --- Connection Pool Settings ---
+  pool_max_connections: 20                        # Max connections per AWX instance pool (default: 20)
+  pool_max_keepalive_connections: 10              # Max keepalive connections per pool (default: 10)
+  network_queue_refresh_interval: 1               # Network Queue dashboard refresh interval in seconds (default: 1)
 
   # --- Development/Testing ---
   mock_mode: false                                # Enable mock mode (default: false)

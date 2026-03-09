@@ -161,6 +161,11 @@ preferences:
   instance_selection_refresh_interval: 5          # Instance health check interval (default: 5)
   show_instance_in_header: true                   # Show active instance in header (default: true)
 
+  # --- Connection Pool Settings ---
+  pool_max_connections: 20                        # Max connections per AWX instance pool (default: 20)
+  pool_max_keepalive_connections: 10              # Max keepalive connections per pool (default: 10)
+  network_queue_refresh_interval: 1               # Network Queue dashboard refresh interval in seconds (default: 1)
+
   # --- Development/Testing ---
   mock_mode: false                                # Enable mock mode (default: false)
 ```
@@ -280,6 +285,7 @@ make clean       # Remove venv and build artifacts
 - `Ctrl+D` - Debug console
 - `Ctrl+T` - Advanced API Mode
 - `Ctrl+O` - The Loaf (notification history)
+- `Ctrl+N` - The Network Queue (connection pool management)
 - `I` or `?` - AWX-TUI Info
 
 ### Dashboard
