@@ -493,7 +493,7 @@ instances:
         # Should return default config
         assert len(config.instances) == 0
 
-    @pytest.mark.skipif(os.name != 'nt', reason="Windows-specific test")
+    @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test")
     def test_load_skips_permission_check_on_windows(self, tmp_path):
         """Test that permission check is skipped on Windows"""
         config_file = tmp_path / "config.yaml"

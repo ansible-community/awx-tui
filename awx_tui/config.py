@@ -547,7 +547,7 @@ class ConfigManager:
             ValueError: If file permissions allow group or other access
         """
         # Skip on Windows (different permission model)
-        if os.name == 'nt':
+        if os.name == "nt":
             return
 
         # Skip if file doesn't exist
