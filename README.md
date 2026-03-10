@@ -6,6 +6,16 @@ Terminal User Interface for AWX with multi-instance support, built in Python and
 
 ![AWX TUI Logo](./img/AWX-TUI-logo-640px.png)
 
+## AI-Assisted Project
+
+**This project was substantially coded by Large Language Models (LLMs) with human review.**
+
+- **AI Attribution (AIA):** EAI Hin R Claude Code v1.0 (Claude Sonnet and Opus)
+- **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>, Daniel Brennand <dbrenuk@redhat.com>
+- **AWX TUI Logo AI Attribution (AIA):** EAI Hin R Gemini v1.0
+
+> **Note:** This work was mostly AI-generated with human review and may not be subject to traditional copyright protection in some jurisdictions.
+
 ## Code of Conduct
 
 We follow the [Ansible Code of Conduct](https://docs.ansible.com/projects/ansible/devel/community/code_of_conduct.html) in all our interactions within this project.
@@ -35,16 +45,6 @@ For more information about communication, see the [Ansible communication guide](
 | ![Create Project](./img/013-awx-tui-create-project.png)            | ![API Payload Preview](./img/014-awx-tui-create-project-api-payload-preview.png) |
 | ![Job Logs](./img/015-awx-tui-job-logs.png)                        | ![Job Events](./img/016-awx-tui-job-events.png)                                  |
 | ![Launch Job](./img/017-awx-tui-launch-job.png)                    | ![Sync Project](./img/018-awx-tui-sync-project.png)                              |
-
-## AI-Assisted Project
-
-**This project was substantially coded by Large Language Models (LLMs) with human review.**
-
-- **AI Attribution (AIA):** EAI Hin R Claude Code v1.0 (Claude Sonnet and Opus)
-- **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>, Daniel Brennand <dbrenuk@redhat.com>
-- **AWX TUI Logo AI Attribution (AIA):** EAI Hin R Gemini v1.0
-
-> **Note:** This work was mostly AI-generated with human review and may not be subject to traditional copyright protection in some jurisdictions.
 
 ---
 
