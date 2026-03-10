@@ -1,0 +1,89 @@
+---
+name: Issue
+description: Bug or feature request
+
+body:
+- type: markdown
+  attributes:
+    value: >
+      **Thank you for your feedback for awx-tu**
+
+
+- type: textarea
+  attributes:
+    label: Summary
+    description: Explain the problem/feature briefly below.
+    placeholder: >-
+      When I try to do X with awx-tui from the devel branch on GitHub, Y
+      breaks in a way Z under the env E. Here are all the details I know
+      about this problem...
+  validations:
+    required: true
+
+
+- type: textarea
+  attributes:
+    label: awx-tui version
+    description: >-
+      Paste verbatim output from `python -m awx_tui.main --version` below, under
+      the prompt line. Please don't wrap it with triple backticks — your
+      whole input will be turned into a code snippet automatically.
+    render: console
+    value: |
+      $ python -m awx_tui.main --version
+    placeholder: |
+      $ python -m awx_tui.main --version
+      awx-tui 0.1.0-beta
+
+- type: textarea
+  attributes:
+    label: OS / Environment
+    description: >-
+      Provide all relevant information below, e.g. target OS versions,
+      network device firmware, etc.
+    placeholder: RHEL 8, CentOS Stream etc.
+
+
+- type: textarea
+  attributes:
+    label: Steps to Reproduce
+    description: |
+      Describe exactly how to reproduce the problem, using a minimal test-case. It would *really* help us understand your problem if you could also provide any playbooks, configs and commands you used.
+
+      **HINT:** You can paste https://gist.github.com links for larger files.
+    value: |
+      <!--- Paste example playbooks or commands between quotes below -->
+      ```yaml (paste below)
+
+      ```
+
+- type: textarea
+  attributes:
+    label: Expected Results
+    description: >-
+      Describe what you expected to happen when running the steps above.
+    placeholder: >-
+      I expected X to happen because I assumed Y and was shocked
+      that it did not.
+
+- type: textarea
+  attributes:
+    label: Actual Results
+    description: |
+      Describe what actually happened. If possible run with extra verbosity (`-vvvv`).
+
+      Paste verbatim command output and don't wrap it with triple backticks — your
+      whole input will be turned into a code snippet automatically.
+    render: console
+
+- type: checkboxes
+  attributes:
+    label: Code of Conduct
+    description: |
+      Read the [Ansible Code of Conduct][CoC] first.
+
+      [CoC]: https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
+    options:
+    - label: I agree to follow the Ansible Code of Conduct
+      required: true
+...
