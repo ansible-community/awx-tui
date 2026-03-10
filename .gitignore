@@ -43,6 +43,9 @@ coverage.xml
 *.cover
 .hypothesis/
 
+# Linting
+.ruff_cache
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
