@@ -200,9 +200,10 @@ class AWXTUIApp(App):
         try:
             self.app_config = self.config_manager.load(cli_args=self.cli_args)
         except Exception as e:
-            # If config fails to load, start with empty config
+            # If config fails to load, start with empty config and notify user
             self.log.error(f"Failed to load config: {e}")
             self.app_config = AppConfig()
+            self.notify(f"Config error: {e}", severity="error", timeout=10)
 
         # Initialize instance manager
         self.instance_manager = InstanceManager(

@@ -92,7 +92,7 @@ class TheNetworkQueueScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.event_data = []
-        self.pool_data = []  # List of (instance_name, client) tuples for pool table
+        self.pool_data = []  # List of (instance_name, client, conn_snapshot) tuples
         self.selected_pool_name = None
         self._refresh_timer = None
 
@@ -186,7 +186,18 @@ class TheNetworkQueueScreen(Screen):
                 try:
                     pool = client.session._transport._pool
                     connections = pool.connections
-                    idle = sum(1 for c in connections if c.is_idle())
+
+                    # Snapshot connection details now so load_connections sees the same state
+                    conn_snapshot = []
+                    idle = 0
+                    for conn in connections:
+                        info_str = str(conn.info())
+                        is_idle = conn.is_idle()
+                        is_closed = conn.is_closed()
+                        if is_idle:
+                            idle += 1
+                        conn_snapshot.append((info_str, is_idle, is_closed))
+
                     active = len(connections) - idle
 
                     pool_table.add_row(
@@ -198,10 +209,10 @@ class TheNetworkQueueScreen(Screen):
                         str(pool._max_connections),
                         str(pool._max_keepalive_connections),
                     )
-                    self.pool_data.append((name, client))
+                    self.pool_data.append((name, client, conn_snapshot))
                 except (Exception):
                     pool_table.add_row(name, "[yellow]●[/yellow] Unknown", "-", "-", "-", "-", "-")
-                    self.pool_data.append((name, client))
+                    self.pool_data.append((name, client, []))
             elif isinstance(client, AWXClient):
                 pool_table.add_row(
                     name,
@@ -212,23 +223,23 @@ class TheNetworkQueueScreen(Screen):
                     str(client.max_connections),
                     str(client.max_keepalive_connections),
                 )
-                self.pool_data.append((name, client))
+                self.pool_data.append((name, client, []))
             elif isinstance(client, InstanceConfig):
                 pool_table.add_row(name, "[dim]○[/dim] Not connected", "-", "-", "-", "-", "-")
-                self.pool_data.append((name, None))
+                self.pool_data.append((name, None, []))
             elif isinstance(client, MockAWXClient):
                 pool_table.add_row(name, "[dim]○[/dim] Mock", "-", "-", "-", "-", "-")
-                self.pool_data.append((name, None))
+                self.pool_data.append((name, None, []))
 
         # Restore selection
         if prev_selected:
-            for i, (pname, _) in enumerate(self.pool_data):
+            for i, (pname, _, _snapshot) in enumerate(self.pool_data):
                 if pname == prev_selected:
                     pool_table.cursor_coordinate = (i, 0)
                     break
 
     def load_connections(self) -> None:
-        """Load connections for the selected pool"""
+        """Load connections for the selected pool from the snapshot captured by load_pools"""
         conn_table = self.query_one("#conn_table", DataTable)
         conn_label = self.query_one("#conn_label", Static)
 
@@ -238,59 +249,45 @@ class TheNetworkQueueScreen(Screen):
             conn_label.update("Connections: Select a pool above")
             return
 
-        # Find the client for the selected pool
-        client = None
-        for pname, pclient in self.pool_data:
+        # Find the snapshot for the selected pool
+        conn_snapshot = None
+        for pname, _pclient, snapshot in self.pool_data:
             if pname == self.selected_pool_name:
-                client = pclient
+                conn_snapshot = snapshot
                 break
 
-        from awx_tui.client import AWXClient
-
-        if not isinstance(client, AWXClient) or not client.session or client.session.is_closed:
+        if conn_snapshot is None:
             conn_label.update(f"Connections: {self.selected_pool_name} (no active session)")
             return
 
-        try:
-            pool = client.session._transport._pool
-            connections = pool.connections
-            conn_label.update(f"Connections: {self.selected_pool_name} ({len(connections)} total)")
+        conn_label.update(f"Connections: {self.selected_pool_name} ({len(conn_snapshot)} total)")
 
-            for conn in connections:
-                info_str = str(conn.info())
+        for info_str, is_idle, is_closed in conn_snapshot:
+            # Parse conn.info() string: "'host:port', HTTP/1.1, IDLE, Request Count: 5"
+            origin = "unknown"
+            http_ver = "unknown"
+            req_count = "0"
 
-                # Parse conn.info() string: "'host:port', HTTP/1.1, IDLE, Request Count: 5"
-                origin = "unknown"
-                http_ver = "unknown"
-                req_count = "0"
+            origin_match = re.search(r"'([^']+)'", info_str)
+            if origin_match:
+                origin = origin_match.group(1)
 
-                # Extract origin
-                origin_match = re.search(r"'([^']+)'", info_str)
-                if origin_match:
-                    origin = origin_match.group(1)
+            http_match = re.search(r"(HTTP/[\d.]+)", info_str)
+            if http_match:
+                http_ver = http_match.group(1)
 
-                # Extract HTTP version
-                http_match = re.search(r"(HTTP/[\d.]+)", info_str)
-                if http_match:
-                    http_ver = http_match.group(1)
+            count_match = re.search(r"Request Count:\s*(\d+)", info_str)
+            if count_match:
+                req_count = count_match.group(1)
 
-                # Extract request count
-                count_match = re.search(r"Request Count:\s*(\d+)", info_str)
-                if count_match:
-                    req_count = count_match.group(1)
+            if is_closed:
+                state = "[red]CLOSED[/red]"
+            elif is_idle:
+                state = "[green]IDLE[/green]"
+            else:
+                state = "[yellow]ACTIVE[/yellow]"
 
-                # State
-                if conn.is_closed():
-                    state = "[red]CLOSED[/red]"
-                elif conn.is_idle():
-                    state = "[green]IDLE[/green]"
-                else:
-                    state = "[yellow]ACTIVE[/yellow]"
-
-                conn_table.add_row(origin, http_ver, state, req_count)
-
-        except (Exception):
-            conn_label.update(f"Connections: {self.selected_pool_name} (introspection unavailable)")
+            conn_table.add_row(origin, http_ver, state, req_count)
 
     def load_events(self) -> None:
         """Load connection events from app's connection event log"""
@@ -351,7 +348,7 @@ class TheNetworkQueueScreen(Screen):
             self.notify("No pool selected", severity="warning", timeout=2)
             return
 
-        for pname, pclient in self.pool_data:
+        for pname, pclient, _snapshot in self.pool_data:
             if pname == self.selected_pool_name:
                 from awx_tui.client import AWXClient
 

@@ -57,7 +57,6 @@ async def check_instance_ping(
     api_call_log: Optional[list] = None,
     instance_name: Optional[str] = None,
     max_log_entries: int = 1000,
-    connection_event_log: Optional[list] = None,
     instance_client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """
@@ -70,7 +69,6 @@ async def check_instance_ping(
         timeout: Request timeout in seconds
         api_call_log: Optional list to log API calls for debug console
         instance_name: Optional instance name for debug logging
-        connection_event_log: Optional list to log connection pool events
         instance_client: Optional instance's httpx.AsyncClient session to reuse
 
     Returns:
@@ -93,8 +91,11 @@ async def check_instance_ping(
         client = httpx.AsyncClient(verify=verify_ssl, timeout=timeout)
         owns_client = True
 
+    # Instance client has base_url set, so use relative path; throwaway client needs full URL
+    request_url = f"{api_base_path}/ping/" if instance_client else ping_url
+
     try:
-        response = await client.get(ping_url)
+        response = await client.get(request_url)
 
         # Calculate response time
         elapsed_ms = int((time.time() - start_time) * 1000)

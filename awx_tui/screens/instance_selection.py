@@ -367,7 +367,6 @@ class InstanceSelectionScreen(Screen):
                     api_call_log=self.app.api_call_log if hasattr(self.app, "api_call_log") else None,
                     instance_name=name,
                     max_log_entries=self.app.app_config.preferences.get("debug_console_max_entries", 1000),
-                    connection_event_log=getattr(self.app, "connection_event_log", None),
                     instance_client=instance_session,
                 )
 
