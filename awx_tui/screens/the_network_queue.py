@@ -6,12 +6,71 @@ per-connection details, and historical event log.
 """
 
 import re
+from typing import Any, List, Tuple
 
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Static
+
+
+def _snapshot_pool_connections(pool) -> Tuple[List[Tuple[str, bool, bool]], int, int]:
+    """Capture a point-in-time snapshot of all connections in a pool.
+
+    Returns:
+        Tuple of (conn_snapshot, idle_count, active_count) where conn_snapshot
+        is a list of (info_str, is_idle, is_closed) tuples.
+    """
+    conn_snapshot = []
+    idle = 0
+    for conn in pool.connections:
+        info_str = str(conn.info())
+        is_idle = conn.is_idle()
+        is_closed = conn.is_closed()
+        if is_idle:
+            idle += 1
+        conn_snapshot.append((info_str, is_idle, is_closed))
+
+    active = len(conn_snapshot) - idle
+    return conn_snapshot, idle, active
+
+
+def _parse_connection_info(info_str: str) -> Tuple[str, str, str]:
+    """Parse an httpcore connection info string into components.
+
+    Args:
+        info_str: String like "'host:port', HTTP/1.1, IDLE, Request Count: 5"
+
+    Returns:
+        Tuple of (origin, http_version, request_count)
+    """
+    origin = "unknown"
+    http_ver = "unknown"
+    req_count = "0"
+
+    origin_match = re.search(r"'([^']+)'", info_str)
+    if origin_match:
+        origin = origin_match.group(1)
+
+    http_match = re.search(r"(HTTP/[\d.]+)", info_str)
+    if http_match:
+        http_ver = http_match.group(1)
+
+    count_match = re.search(r"Request Count:\s*(\d+)", info_str)
+    if count_match:
+        req_count = count_match.group(1)
+
+    return origin, http_ver, req_count
+
+
+def _connection_state_label(is_idle: bool, is_closed: bool) -> str:
+    """Return a colored state label for a connection."""
+    if is_closed:
+        return "[red]CLOSED[/red]"
+    if is_idle:
+        return "[green]IDLE[/green]"
+    return "[yellow]ACTIVE[/yellow]"
 
 
 class TheNetworkQueueScreen(Screen):
@@ -21,7 +80,7 @@ class TheNetworkQueueScreen(Screen):
     Three sections:
     1. Pool Overview - all pools with high-level stats
     2. Connections - individual connections in the selected pool
-    3. Event Log - historical connection events with detail panel
+    3. Event Log - historical connection events
     """
 
     CSS = """
@@ -128,7 +187,7 @@ class TheNetworkQueueScreen(Screen):
         """Initialize the dashboard"""
         self.refresh_all()
 
-def refresh_all(self) -> None:
+    def refresh_all(self) -> None:
         """Load all three sections"""
         self.load_pools()
         self.load_connections()
@@ -147,11 +206,60 @@ def refresh_all(self) -> None:
             last_row = len(self.event_data) - 1
             event_table.cursor_coordinate = (last_row, 0)
 
+    def _get_pool_row(self, name, client) -> Tuple[tuple, Any, list]:
+        """Build a pool table row and snapshot for a single client.
+
+        Returns:
+            Tuple of (row_values, client_ref, conn_snapshot)
+        """
+        from awx_tui.client import AWXClient
+        from awx_tui.config import InstanceConfig
+        from awx_tui.mock_data import MockAWXClient
+
+        if isinstance(client, AWXClient) and client.session and not client.session.is_closed:
+            try:
+                pool = client.session._transport._pool
+                conn_snapshot, idle, active = _snapshot_pool_connections(pool)
+                row = (
+                    name,
+                    "[green]●[/green] Active",
+                    str(len(conn_snapshot)),
+                    str(active),
+                    str(idle),
+                    str(pool._max_connections),
+                    str(pool._max_keepalive_connections),
+                )
+                return row, client, conn_snapshot
+            except Exception:
+                row = (name, "[yellow]●[/yellow] Unknown", "-", "-", "-", "-", "-")
+                return row, client, []
+
+        if isinstance(client, AWXClient):
+            row = (
+                name,
+                "[dim]○[/dim] No session",
+                "0",
+                "0",
+                "0",
+                str(client.max_connections),
+                str(client.max_keepalive_connections),
+            )
+            return row, client, []
+
+        if isinstance(client, InstanceConfig):
+            row = (name, "[dim]○[/dim] Not connected", "-", "-", "-", "-", "-")
+            return row, None, []
+
+        if isinstance(client, MockAWXClient):
+            row = (name, "[dim]○[/dim] Mock", "-", "-", "-", "-", "-")
+            return row, None, []
+
+        row = (name, "[dim]○[/dim] Unknown", "-", "-", "-", "-", "-")
+        return row, None, []
+
     def load_pools(self) -> None:
         """Load pool overview table"""
         pool_table = self.query_one("#pool_table", DataTable)
-
-        # Remember selection
         prev_selected = self.selected_pool_name
 
         pool_table.clear()
@@ -161,61 +269,11 @@ def refresh_all(self) -> None:
         if not instance_manager:
             return
 
-        from awx_tui.client import AWXClient
-        from awx_tui.config import InstanceConfig
-        from awx_tui.mock_data import MockAWXClient
-
         for name in instance_manager.get_instance_names():
             client = instance_manager.clients.get(name)
-
-            if isinstance(client, AWXClient) and client.session and not client.session.is_closed:
-                try:
-                    pool = client.session._transport._pool
-                    connections = pool.connections
-
-                    # Snapshot connection details now so load_connections sees the same state
-                    conn_snapshot = []
-                    idle = 0
-                    for conn in connections:
-                        info_str = str(conn.info())
-                        is_idle = conn.is_idle()
-                        is_closed = conn.is_closed()
-                        if is_idle:
-                            idle += 1
-                        conn_snapshot.append((info_str, is_idle, is_closed))
-
-                    active = len(connections) - idle
-
-                    pool_table.add_row(
-                        name,
-                        "[green]●[/green] Active",
-                        str(len(connections)),
-                        str(active),
-                        str(idle),
-                        str(pool._max_connections),
-                        str(pool._max_keepalive_connections),
-                    )
-                    self.pool_data.append((name, client, conn_snapshot))
-                except (Exception):
-                    pool_table.add_row(name, "[yellow]●[/yellow] Unknown", "-", "-", "-", "-", "-")
-                    self.pool_data.append((name, client, []))
-            elif isinstance(client, AWXClient):
-                pool_table.add_row(
-                    name,
-                    "[dim]○[/dim] No session",
-                    "0",
-                    "0",
-                    "0",
-                    str(client.max_connections),
-                    str(client.max_keepalive_connections),
-                )
-                self.pool_data.append((name, client, []))
-            elif isinstance(client, InstanceConfig):
-                pool_table.add_row(name, "[dim]○[/dim] Not connected", "-", "-", "-", "-", "-")
-                self.pool_data.append((name, None, []))
-            elif isinstance(client, MockAWXClient):
-                pool_table.add_row(name, "[dim]○[/dim] Mock", "-", "-", "-", "-", "-")
-                self.pool_data.append((name, None, []))
+            row, client_ref, conn_snapshot = self._get_pool_row(name, client)
+            pool_table.add_row(*row)
+            self.pool_data.append((name, client_ref, conn_snapshot))
 
         # Restore selection
         if prev_selected:
@@ -249,30 +307,8 @@ def refresh_all(self) -> None:
         conn_label.update(f"Connections: {self.selected_pool_name} ({len(conn_snapshot)} total)")
 
         for info_str, is_idle, is_closed in conn_snapshot:
-            # Parse conn.info() string: "'host:port', HTTP/1.1, IDLE, Request Count: 5"
-            origin = "unknown"
-            http_ver = "unknown"
-            req_count = "0"
-
-            origin_match = re.search(r"'([^']+)'", info_str)
-            if origin_match:
-                origin = origin_match.group(1)
-
-            http_match = re.search(r"(HTTP/[\d.]+)", info_str)
-            if http_match:
-                http_ver = http_match.group(1)
-
-            count_match = re.search(r"Request Count:\s*(\d+)", info_str)
-            if count_match:
-                req_count = count_match.group(1)
-
-            if is_closed:
-                state = "[red]CLOSED[/red]"
-            elif is_idle:
-                state = "[green]IDLE[/green]"
-            else:
-                state = "[yellow]ACTIVE[/yellow]"
-
+            origin, http_ver, req_count = _parse_connection_info(info_str)
+            state = _connection_state_label(is_idle, is_closed)
             conn_table.add_row(origin, http_ver, state, req_count)
 
     def load_events(self) -> None:
