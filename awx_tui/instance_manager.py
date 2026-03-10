@@ -6,8 +6,6 @@ Manages multiple AWX instances and their API clients.
 
 from typing import Dict, List, Optional, Union
 
-import httpx
-
 from awx_tui.client import AWXClient
 from awx_tui.config import AppConfig, InstanceConfig
 from awx_tui.mock_data import MOCK_INSTANCES, MockAWXClient
@@ -51,7 +49,6 @@ class InstanceManager:
         self.connection_event_log = connection_event_log
         self.clients: Dict[str, Union[AWXClient, MockAWXClient]] = {}
         self.current_instance: Optional[str] = None
-        self.ping_client: Optional[httpx.AsyncClient] = None
 
         # Initialize instances
         if mock_mode:
@@ -329,34 +326,11 @@ class InstanceManager:
         # MockAWXClient doesn't need async context
         return True
 
-    async def get_ping_client(self) -> httpx.AsyncClient:
-        """Get or create the persistent ping-pool client"""
-        if self.ping_client is None or self.ping_client.is_closed:
-            from awx_tui.ping_checker import _log_ping_connection_event
-
-            self.ping_client = httpx.AsyncClient(
-                verify=False,
-                timeout=10.0,
-                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-            )
-            _log_ping_connection_event(
-                self.connection_event_log, "ping-pool", "POOL_CREATED", "max_connections=10, max_keepalive=5"
-            )
-        return self.ping_client
-
     async def close_all_clients(self) -> None:
-        """Close all persistent AWXClient sessions and ping pool (for app shutdown)"""
+        """Close all persistent AWXClient sessions (for app shutdown)"""
         for client in self.clients.values():
             if isinstance(client, AWXClient):
                 await client.close()
-        if self.ping_client and not self.ping_client.is_closed:
-            from awx_tui.ping_checker import _log_ping_connection_event
-
-            _log_ping_connection_event(
-                self.connection_event_log, "ping-pool", "POOL_CLOSED", "Session explicitly closed"
-            )
-            await self.ping_client.aclose()
-            self.ping_client = None
 
     def get_instance_display_name(self, instance_name: Optional[str] = None) -> str:
         """

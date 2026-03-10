@@ -348,13 +348,16 @@ class InstanceSelectionScreen(Screen):
                 config.last_checked = time.strftime("%Y-%m-%d %H:%M:%S")
                 config.last_response_time = response_time
             else:
-                # Real instance - ping it
+                # Real instance - ping using the instance's own AWXClient session
+                from awx_tui.client import AWXClient
                 from awx_tui.ping_checker import check_instance_ping
 
-                # Get shared ping client from instance manager
-                shared_ping = None
+                instance_session = None
                 if hasattr(self.app, "instance_manager") and self.app.instance_manager:
-                    shared_ping = await self.app.instance_manager.get_ping_client()
+                    client = self.app.instance_manager.get_client(name)
+                    if isinstance(client, AWXClient):
+                        async with client:
+                            instance_session = client.session
 
                 ping_result = await check_instance_ping(
                     url=config.url,
@@ -365,7 +368,7 @@ class InstanceSelectionScreen(Screen):
                     instance_name=name,
                     max_log_entries=self.app.app_config.preferences.get("debug_console_max_entries", 1000),
                     connection_event_log=getattr(self.app, "connection_event_log", None),
-                    shared_client=shared_ping,
+                    instance_client=instance_session,
                 )
 
                 status = ping_result["status"]

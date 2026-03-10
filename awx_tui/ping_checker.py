@@ -58,7 +58,7 @@ async def check_instance_ping(
     instance_name: Optional[str] = None,
     max_log_entries: int = 1000,
     connection_event_log: Optional[list] = None,
-    shared_client: Optional[httpx.AsyncClient] = None,
+    instance_client: Optional[httpx.AsyncClient] = None,
 ) -> Dict[str, Any]:
     """
     Check AWX instance connectivity via ping endpoint
@@ -71,7 +71,7 @@ async def check_instance_ping(
         api_call_log: Optional list to log API calls for debug console
         instance_name: Optional instance name for debug logging
         connection_event_log: Optional list to log connection pool events
-        shared_client: Optional persistent httpx.AsyncClient to reuse (ping-pool)
+        instance_client: Optional instance's httpx.AsyncClient session to reuse
 
     Returns:
         Dictionary with:
@@ -86,8 +86,8 @@ async def check_instance_ping(
 
     result = {"status": "unknown", "version": "Unknown", "response_time_ms": 0, "response_time": "N/A", "error": None}
 
-    # Use shared client if provided, otherwise create a throwaway one
-    client = shared_client
+    # Use instance client if provided, otherwise create a throwaway one
+    client = instance_client
     owns_client = False
     if client is None:
         client = httpx.AsyncClient(verify=verify_ssl, timeout=timeout)

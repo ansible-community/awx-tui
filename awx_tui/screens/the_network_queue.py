@@ -7,7 +7,6 @@ per-connection details, and historical event log.
 
 import re
 
-import httpx
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
@@ -221,32 +220,6 @@ class TheNetworkQueueScreen(Screen):
                 pool_table.add_row(name, "[dim]○[/dim] Mock", "-", "-", "-", "-", "-")
                 self.pool_data.append((name, None))
 
-        # Add ping-pool if it exists
-        ping_client = getattr(instance_manager, "ping_client", None)
-        if ping_client and not ping_client.is_closed:
-            try:
-                pool = ping_client._transport._pool
-                connections = pool.connections
-                idle = sum(1 for c in connections if c.is_idle())
-                active = len(connections) - idle
-
-                pool_table.add_row(
-                    "ping-pool",
-                    "[cyan]●[/cyan] Active",
-                    str(len(connections)),
-                    str(active),
-                    str(idle),
-                    str(pool._max_connections),
-                    str(pool._max_keepalive_connections),
-                )
-                self.pool_data.append(("ping-pool", ping_client))
-            except (AttributeError, Exception):
-                pool_table.add_row("ping-pool", "[yellow]●[/yellow] Unknown", "-", "-", "-", "-", "-")
-                self.pool_data.append(("ping-pool", ping_client))
-        elif ping_client is None:
-            pool_table.add_row("ping-pool", "[dim]○[/dim] Not started", "-", "-", "-", "-", "-")
-            self.pool_data.append(("ping-pool", None))
-
         # Restore selection
         if prev_selected:
             for i, (pname, _) in enumerate(self.pool_data):
@@ -274,19 +247,12 @@ class TheNetworkQueueScreen(Screen):
 
         from awx_tui.client import AWXClient
 
-        # Resolve the httpx session - either from AWXClient or raw httpx.AsyncClient (ping-pool)
-        session = None
-        if isinstance(client, AWXClient) and client.session and not client.session.is_closed:
-            session = client.session
-        elif isinstance(client, httpx.AsyncClient) and not client.is_closed:
-            session = client
-
-        if session is None:
+        if not isinstance(client, AWXClient) or not client.session or client.session.is_closed:
             conn_label.update(f"Connections: {self.selected_pool_name} (no active session)")
             return
 
         try:
-            pool = session._transport._pool
+            pool = client.session._transport._pool
             connections = pool.connections
             conn_label.update(f"Connections: {self.selected_pool_name} ({len(connections)} total)")
 
@@ -391,8 +357,6 @@ class TheNetworkQueueScreen(Screen):
 
                 if isinstance(pclient, AWXClient) and pclient.session and not pclient.session.is_closed:
                     self.run_worker(self._do_close_pool(pclient, pname))
-                elif pname == "ping-pool" and isinstance(pclient, httpx.AsyncClient) and not pclient.is_closed:
-                    self.run_worker(self._do_close_ping_pool(pclient))
                 else:
                     self.notify(f"{pname}: No active session to close", severity="warning", timeout=2)
                 return
@@ -401,20 +365,6 @@ class TheNetworkQueueScreen(Screen):
         """Actually close an AWXClient pool"""
         await client.close()
         self.notify(f"Pool closed: {name}", timeout=2)
-        self.refresh_all()
-
-    async def _do_close_ping_pool(self, client) -> None:
-        """Close the ping-pool"""
-        instance_manager = getattr(self.app, "instance_manager", None)
-        if instance_manager:
-            from awx_tui.ping_checker import _log_ping_connection_event
-
-            _log_ping_connection_event(
-                getattr(self.app, "connection_event_log", None), "ping-pool", "POOL_CLOSED", "Closed from Network Queue"
-            )
-            await client.aclose()
-            instance_manager.ping_client = None
-        self.notify("Pool closed: ping-pool", timeout=2)
         self.refresh_all()
 
     def action_purge(self) -> None:
