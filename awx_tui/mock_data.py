@@ -68,11 +68,11 @@ def generate_job_data(
     elapsed = 0.0
 
     if status in ("running", "successful", "failed", "canceled", "error"):
-        started = created + timedelta(seconds=random.randint(1, 10))
+        started = created + timedelta(seconds=random.randint(1, 10))  # NOSONAR
 
         if status in ("successful", "failed", "canceled", "error"):
             # Completed job
-            elapsed = random.randint(30, 600)  # 30s to 10min
+            elapsed = random.randint(30, 600)  # NOSONAR
             finished = started + timedelta(seconds=elapsed)
         else:
             # Running job
@@ -83,63 +83,68 @@ def generate_job_data(
         "type": "job",
         "url": f"/api/v2/jobs/{job_id}/",
         "related": {
-            "created_by": f"/api/v2/users/{random.randint(1, 10)}/",
+            "created_by": f"/api/v2/users/{random.randint(1, 10)}/",  # NOSONAR
             "labels": "/api/v2/jobs/{job_id}/labels/",
-            "inventory": f"/api/v2/inventories/{random.randint(1, 20)}/",
-            "project": f"/api/v2/projects/{random.randint(1, 50)}/",
+            "inventory": f"/api/v2/inventories/{random.randint(1, 20)}/",  # NOSONAR
+            "project": f"/api/v2/projects/{random.randint(1, 50)}/",  # NOSONAR
             "credentials": f"/api/v2/jobs/{job_id}/credentials/",
-            "unified_job_template": f"/api/v2/job_templates/{random.randint(1, 100)}/",
+            "unified_job_template": f"/api/v2/job_templates/{random.randint(1, 100)}/",  # NOSONAR
             "stdout": f"/api/v2/jobs/{job_id}/stdout/",
-            "execution_environment": f"/api/v2/execution_environments/{random.randint(1, 10)}/",
+            "execution_environment": f"/api/v2/execution_environments/{random.randint(1, 10)}/",  # NOSONAR
             "job_events": f"/api/v2/jobs/{job_id}/job_events/",
             "job_host_summaries": f"/api/v2/jobs/{job_id}/job_host_summaries/",
             "activity_stream": f"/api/v2/jobs/{job_id}/activity_stream/",
             "notifications": f"/api/v2/jobs/{job_id}/notifications/",
-            "job_template": f"/api/v2/job_templates/{random.randint(1, 100)}/",
+            "job_template": f"/api/v2/job_templates/{random.randint(1, 100)}/",  # NOSONAR
             "cancel": f"/api/v2/jobs/{job_id}/cancel/",
             "relaunch": f"/api/v2/jobs/{job_id}/relaunch/",
         },
         "summary_fields": {
             "organization": {
-                "id": random.randint(1, 10),
-                "name": random.choice(["Engineering", "Operations", "DevOps", "Platform", "QA"]),
+                "id": random.randint(1, 10),  # NOSONAR
+                "name": random.choice(["Engineering", "Operations", "DevOps", "Platform", "QA"]),  # NOSONAR
                 "description": "",
             },
             "inventory": {
-                "id": random.randint(1, 20),
+                "id": random.randint(1, 20),  # NOSONAR
                 "name": inventory_name,
                 "description": "",
                 "has_active_failures": False,
-                "total_hosts": random.randint(5, 100),
+                "total_hosts": random.randint(5, 100),  # NOSONAR
                 "hosts_with_active_failures": 0,
-                "total_groups": random.randint(2, 20),
+                "total_groups": random.randint(2, 20),  # NOSONAR
                 "has_inventory_sources": True,
-                "total_inventory_sources": random.randint(1, 5),
+                "total_inventory_sources": random.randint(1, 5),  # NOSONAR
                 "inventory_sources_with_failures": 0,
-                "organization_id": random.randint(1, 10),
+                "organization_id": random.randint(1, 10),  # NOSONAR
                 "kind": "",
             },
             "execution_environment": {
-                "id": random.randint(1, 10),
+                "id": random.randint(1, 10),  # NOSONAR
                 "name": exec_env_name,
                 "description": "",
                 "image": f"quay.io/ansible/{exec_env_name}:latest",
             },
             "project": {
-                "id": random.randint(1, 50),
+                "id": random.randint(1, 50),  # NOSONAR
                 "name": project_name,
                 "description": "",
                 "status": "successful",
                 "scm_type": "git",
             },
-            "job_template": {"id": random.randint(1, 100), "name": template_name, "description": ""},
+            "job_template": {"id": random.randint(1, 100), "name": template_name, "description": ""},  # NOSONAR
             "unified_job_template": {
-                "id": random.randint(1, 100),
+                "id": random.randint(1, 100),  # NOSONAR
                 "name": template_name,
                 "description": "",
                 "unified_job_type": "job",
             },
-            "created_by": {"id": random.randint(1, 10), "username": created_by, "first_name": "", "last_name": ""},
+            "created_by": {
+                "id": random.randint(1, 10),
+                "username": created_by,
+                "first_name": "",
+                "last_name": "",
+            },  # NOSONAR
             "user_capabilities": {"delete": True, "start": True},
             "labels": {"count": 0, "results": []},
             "credentials": [],
@@ -149,15 +154,15 @@ def generate_job_data(
         "name": name,
         "description": "",
         "job_type": "run",
-        "inventory": random.randint(1, 20),
-        "project": random.randint(1, 50),
+        "inventory": random.randint(1, 20),  # NOSONAR
+        "project": random.randint(1, 50),  # NOSONAR
         "playbook": f'{name.lower().replace(" ", "_")}.yml',
         "scm_branch": "",
-        "forks": random.choice([0, 5, 10, 20]),
+        "forks": random.choice([0, 5, 10, 20]),  # NOSONAR
         "limit": "",
-        "verbosity": random.choice([0, 1, 2]),
+        "verbosity": random.choice([0, 1, 2]),  # NOSONAR
         "extra_vars": "{}",
-        "job_tags": random.choice(["", "deploy", "deploy,production", "backup", "test"]),
+        "job_tags": random.choice(["", "deploy", "deploy,production", "backup", "test"]),  # NOSONAR
         "force_handlers": False,
         "skip_tags": "",
         "start_at_task": "",
@@ -177,7 +182,7 @@ def generate_job_data(
         "job_cwd": "",
         "job_env": {},
         "job_explanation": "",
-        "execution_node": random.choice(
+        "execution_node": random.choice(  # NOSONAR
             [
                 "mock-controller-001.local",
                 "mock-controller-002.local",
@@ -188,18 +193,18 @@ def generate_job_data(
         "result_traceback": "",
         "event_processing_finished": finished is not None,
         "launched_by": {
-            "id": random.randint(1, 10),
+            "id": random.randint(1, 10),  # NOSONAR
             "name": created_by,
             "type": "user",
-            "url": f"/api/v2/users/{random.randint(1, 10)}/",
+            "url": f"/api/v2/users/{random.randint(1, 10)}/",  # NOSONAR
         },
         "work_unit_id": None,
-        "job_template": random.randint(1, 100),
+        "job_template": random.randint(1, 100),  # NOSONAR
         "passwords_needed_to_start": [],
         "allow_simultaneous": False,
         "artifacts": {},
         "scm_revision": "",
-        "instance_group": random.randint(1, 5),
+        "instance_group": random.randint(1, 5),  # NOSONAR
         "diff_mode": False,
         "job_slice_number": 0,
         "job_slice_count": 1,
@@ -520,24 +525,28 @@ class MockAWXClient:
         self.mock_data["running_jobs"] = []
         for i in range(num_running):
             job_id = 5000 + i
-            status = random.choice(["running", "running", "pending"])
-            launch_type = random.choice(["manual", "scheduled", "relaunch"])
+            status = random.choice(["running", "running", "pending"])  # NOSONAR
+            launch_type = random.choice(["manual", "scheduled", "relaunch"])  # NOSONAR
 
             job = generate_job_data(
                 job_id=job_id,
-                name=random.choice(
+                name=random.choice(  # NOSONAR
                     ["Deploy Production", "Backup Database", "Update DNS", "Rollback Application", "Test Staging"]
                 ),
                 status=status,
                 launch_type=launch_type,
-                template_name=random.choice(["Deploy Playbook", "DB Backup", "DNS Update", "Rollback", "Test Suite"]),
-                project_name=random.choice(
+                template_name=random.choice(
+                    ["Deploy Playbook", "DB Backup", "DNS Update", "Rollback", "Test Suite"]
+                ),  # NOSONAR
+                project_name=random.choice(  # NOSONAR
                     ["Production Playbooks", "Operations Playbooks", "Network Playbooks", "Test Playbooks"]
                 ),
-                inventory_name=random.choice(["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]),
-                exec_env_name=random.choice(["ee-29-rhel8", "ee-minimal", "ee-test"]),
-                created_by=random.choice(["admin", "ansible", "jenkins", "netops"]),
-                minutes_ago=random.randint(0, 10),
+                inventory_name=random.choice(
+                    ["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]
+                ),  # NOSONAR
+                exec_env_name=random.choice(["ee-29-rhel8", "ee-minimal", "ee-test"]),  # NOSONAR
+                created_by=random.choice(["admin", "ansible", "jenkins", "netops"]),  # NOSONAR
+                minutes_ago=random.randint(0, 10),  # NOSONAR
             )
             self.mock_data["running_jobs"].append(job)
 
@@ -548,15 +557,15 @@ class MockAWXClient:
 
             # Determine status based on failure rate
             if random.random() < failure_rate:
-                status = random.choice(["failed", "failed", "canceled"])
+                status = random.choice(["failed", "failed", "canceled"])  # NOSONAR
             else:
                 status = "successful"
 
-            launch_type = random.choice(["manual", "manual", "scheduled", "relaunch", "workflow"])
+            launch_type = random.choice(["manual", "manual", "scheduled", "relaunch", "workflow"])  # NOSONAR
 
             job = generate_job_data(
                 job_id=job_id,
-                name=random.choice(
+                name=random.choice(  # NOSONAR
                     [
                         "Deploy Production",
                         "Backup Database",
@@ -568,14 +577,18 @@ class MockAWXClient:
                 ),
                 status=status,
                 launch_type=launch_type,
-                template_name=random.choice(["Deploy Playbook", "DB Backup", "DNS Update", "Rollback", "Test Suite"]),
-                project_name=random.choice(
+                template_name=random.choice(  # NOSONAR
+                    ["Deploy Playbook", "DB Backup", "DNS Update", "Rollback", "Test Suite"]
+                ),
+                project_name=random.choice(  # NOSONAR
                     ["Production Playbooks", "Operations Playbooks", "Network Playbooks", "Test Playbooks"]
                 ),
-                inventory_name=random.choice(["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]),
-                exec_env_name=random.choice(["ee-29-rhel8", "ee-minimal", "ee-test"]),
-                created_by=random.choice(["admin", "admin", "ansible", "jenkins", "netops"]),
-                minutes_ago=random.randint(10, 60 * 24 * 7),  # Last 7 days
+                inventory_name=random.choice(  # NOSONAR
+                    ["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]
+                ),
+                exec_env_name=random.choice(["ee-29-rhel8", "ee-minimal", "ee-test"]),  # NOSONAR
+                created_by=random.choice(["admin", "admin", "ansible", "jenkins", "netops"]),  # NOSONAR
+                minutes_ago=random.randint(10, 60 * 24 * 7),  # NOSONAR
             )
             self.mock_data["recent_jobs"].append(job)
 
@@ -591,7 +604,7 @@ class MockAWXClient:
             Mock response data
         """
         # Simulate network latency (50-200ms)
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
 
         # Route to appropriate mock response
         if endpoint == "/api/v2/ping/":
@@ -730,9 +743,9 @@ class MockAWXClient:
                     "consumed_capacity": consumed,
                     "percent_capacity_remaining": pct_remaining,
                     "jobs_running": jobs_running,
-                    "jobs_total": random.randint(50, 200),
-                    "cpu": random.uniform(10.0, 30.0),
-                    "memory": random.uniform(20.0, 50.0),
+                    "jobs_total": random.randint(50, 200),  # NOSONAR
+                    "cpu": random.uniform(10.0, 30.0),  # NOSONAR
+                    "memory": random.uniform(20.0, 50.0),  # NOSONAR
                     "cpu_capacity": capacity,
                     "mem_capacity": capacity,
                     "enabled": True,
@@ -1186,7 +1199,7 @@ class MockAWXClient:
                 {
                     "id": i,
                     "name": f"host-{i:03d}.example.com",
-                    "inventory": random.randint(1, 6),
+                    "inventory": random.randint(1, 6),  # NOSONAR
                     "enabled": True,
                 }
             )
@@ -1236,7 +1249,7 @@ class MockAWXClient:
             raise ValueError(f"Job template {template_id} not found")
 
         # Generate a new job ID (use a high number to avoid conflicts)
-        new_job_id = 6000 + random.randint(1, 9999)
+        new_job_id = 6000 + random.randint(1, 9999)  # NOSONAR
 
         # Create job from template
         job = generate_job_data(
@@ -1275,7 +1288,7 @@ class MockAWXClient:
             raise ValueError(f"Project {project_id} not found")
 
         # Generate a new job ID for project_update
-        new_job_id = 7000 + random.randint(1, 9999)
+        new_job_id = 7000 + random.randint(1, 9999)  # NOSONAR
 
         # Create project_update job
         now = datetime.now()
@@ -1333,7 +1346,7 @@ class MockAWXClient:
         hosts_mode = relaunch_data.get("hosts", "all")
 
         # Generate a new job ID (use 8000+ range for relaunched jobs)
-        new_job_id = 8000 + random.randint(1, 9999)
+        new_job_id = 8000 + random.randint(1, 9999)  # NOSONAR
 
         # Create new job based on original job
         # Copy most fields from original, but reset status and timestamps
@@ -1468,7 +1481,7 @@ class MockAWXClient:
     # Other HTTP methods
     async def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Mock POST request"""
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
 
         # Handle job template launch
         if "/job_templates/" in endpoint and endpoint.endswith("/launch/"):
@@ -1498,15 +1511,15 @@ class MockAWXClient:
 
     async def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Mock PUT request"""
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
         return {"detail": "Mock PUT not implemented"}
 
     async def patch(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Mock PATCH request"""
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
         return {"detail": "Mock PATCH not implemented"}
 
     async def delete(self, endpoint: str) -> None:
         """Mock DELETE request"""
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
         pass

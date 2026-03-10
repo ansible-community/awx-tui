@@ -179,7 +179,7 @@ class AWXTUIApp(App):
             )
 
         # Pick a random app name for this session
-        self.current_app_name = random.choice(ROTATING_NAMES)
+        self.current_app_name = random.choice(ROTATING_NAMES)  # NOSONAR
         self.title = self.current_app_name
         # self.sub_title = TAGLINE
 
@@ -260,7 +260,7 @@ class AWXTUIApp(App):
         available_names = [name for name in ROTATING_NAMES if name != self.current_app_name]
 
         # Pick a random new name
-        self.current_app_name = random.choice(available_names)
+        self.current_app_name = random.choice(available_names)  # NOSONAR
 
         # Update title display
         self._update_title()
@@ -270,7 +270,7 @@ class AWXTUIApp(App):
 
     def _schedule_title_rotation(self) -> None:
         """Schedule the next title rotation at a random interval (5-10 minutes)"""
-        interval = random.uniform(TITLE_ROTATION_MIN, TITLE_ROTATION_MAX)
+        interval = random.uniform(TITLE_ROTATION_MIN, TITLE_ROTATION_MAX)  # NOSONAR
         self.set_timer(interval, self._rotate_title)
 
     def get_dashboard_class(self):

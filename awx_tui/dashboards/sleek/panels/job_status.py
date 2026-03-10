@@ -233,7 +233,7 @@ class JobStatusPanel:
                     row_chars.append("[yellow]~[/yellow]")  # Tilde for both success and failure
                 elif col < graph_width - 1:
                     if (col + 1) % 3 == 0:
-                        dot_char = random.choice(["⊹", "·"])
+                        dot_char = random.choice(["⊹", "·"])  # NOSONAR
                         row_chars.append(f"[dim]{dot_char}[/dim]")
                     else:
                         row_chars.append(" ")
