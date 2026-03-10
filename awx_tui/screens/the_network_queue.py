@@ -94,7 +94,6 @@ class TheNetworkQueueScreen(Screen):
         self.event_data = []
         self.pool_data = []  # List of (instance_name, client, conn_snapshot) tuples
         self.selected_pool_name = None
-        self._refresh_timer = None
 
     def compose(self) -> ComposeResult:
         """Create the network queue dashboard layout"""
@@ -129,20 +128,7 @@ class TheNetworkQueueScreen(Screen):
         """Initialize the dashboard"""
         self.refresh_all()
 
-        # Start auto-refresh timer
-        refresh_interval = 1
-        if hasattr(self.app, "app_config") and self.app.app_config:
-            refresh_interval = self.app.app_config.preferences.get("network_queue_refresh_interval", 1)
-        if refresh_interval > 0:
-            self._refresh_timer = self.set_interval(refresh_interval, self._auto_refresh)
-
-    def _auto_refresh(self) -> None:
-        """Auto-refresh pool and connection tables (silent)"""
-        self.load_pools()
-        self.load_connections()
-        self.load_events()
-
-    def refresh_all(self) -> None:
+def refresh_all(self) -> None:
         """Load all three sections"""
         self.load_pools()
         self.load_connections()
@@ -333,8 +319,6 @@ class TheNetworkQueueScreen(Screen):
 
     def action_back(self) -> None:
         """Close the network queue screen"""
-        if self._refresh_timer:
-            self._refresh_timer.stop()
         self.app.pop_screen()
 
     def action_refresh(self) -> None:
@@ -377,6 +361,4 @@ class TheNetworkQueueScreen(Screen):
 
     def action_quit(self) -> None:
         """Quit the application"""
-        if self._refresh_timer:
-            self._refresh_timer.stop()
         self.app.exit()
