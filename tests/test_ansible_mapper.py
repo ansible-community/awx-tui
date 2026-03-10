@@ -711,7 +711,7 @@ class TestHostMapper:
             "description": "Production web server 01",
             "inventory_name": "Production",
             "enabled": True,
-            "variables": {"ansible_host": "192.168.1.10", "ansible_user": "deploy"},
+            "variables": {"ansible_host": "192.168.1.10", "ansible_user": "deploy"},  # NOSONAR
         }
 
     def test_minimal_host(self, minimal_host_data):
@@ -752,7 +752,7 @@ class TestHostMapper:
         # Variables should be JSON string
         assert isinstance(params["variables"], str)
         vars_dict = json.loads(params["variables"])
-        assert vars_dict["ansible_host"] == "192.168.1.10"
+        assert vars_dict["ansible_host"] == "192.168.1.10"  # NOSONAR
         assert vars_dict["ansible_user"] == "deploy"
 
         # enabled=True should not be in params (it's the default)
