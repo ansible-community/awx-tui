@@ -28,12 +28,12 @@ class TestSensitiveDataScrubbing:
 
         data = {
             "name": "My Credential",
-            "password": "FAKE_PASS_123",
+            "password": "FAKE_PASS_123",  # NOSONAR
             "token": "FAKE_TOKEN_123",
-            "secret": "FAKE_SECRET_VALUE",
-            "api_key": "FAKE_API_KEY_VALUE",
+            "secret": "FAKE_SECRET_VALUE",  # NOSONAR
+            "api_key": "FAKE_API_KEY_VALUE",  # NOSONAR
             "ssh_key_data": "FAKE_SSH_KEY_CONTENT_HERE",
-            "vault_password": "FAKE_VAULT_VALUE",
+            "vault_password": "FAKE_VAULT_VALUE",  # NOSONAR
         }
 
         scrubbed = modal._scrub_sensitive_data(data)
@@ -54,7 +54,7 @@ class TestSensitiveDataScrubbing:
             "Password": "FAKE_PASSWORD_1",
             "API_KEY": "FAKE_KEY_1",
             "user_token": "FAKE_USER_TOKEN",
-            "vault_Password": "FAKE_VAULT_1",
+            "vault_Password": "FAKE_VAULT_1",  # NOSONAR
             "CLIENT_SECRET": "FAKE_CLIENT_VALUE",
         }
 
@@ -72,7 +72,7 @@ class TestSensitiveDataScrubbing:
         modal = JsonPreviewModal(json_data={})
 
         data = {
-            "user_password": "FAKE_USER_PASS",
+            "user_password": "FAKE_USER_PASS",  # NOSONAR
             "ssh_private_key": "FAKE_SSH_KEY",
             "github_token": "FAKE_GITHUB_TOKEN",
             "aws_secret_key": "FAKE_AWS_KEY",
@@ -110,10 +110,10 @@ class TestSensitiveDataScrubbing:
             "name": "Credential",
             "inputs": {
                 "username": "admin",
-                "password": "FAKE_SECRET_123",
+                "password": "FAKE_SECRET_123",  # NOSONAR
                 "ssh_key_data": "FAKE_PRIVATE_KEY_DATA",
             },
-            "metadata": {"created_by": "user1", "token": "FAKE_ACCESS_TOKEN"},
+            "metadata": {"created_by": "user1", "token": "FAKE_ACCESS_TOKEN"},  # NOSONAR
         }
 
         scrubbed = modal._scrub_sensitive_data(data)
@@ -135,8 +135,8 @@ class TestSensitiveDataScrubbing:
                 {"name": "Token", "token": "FAKE_TOKEN_VAL"},
             ],
             "users": [
-                {"username": "user1", "password": "FAKE_PASS_USER1"},
-                {"username": "user2", "password": "FAKE_PASS_USER2"},
+                {"username": "user1", "password": "FAKE_PASS_USER1"},  # NOSONAR
+                {"username": "user2", "password": "FAKE_PASS_USER2"},  # NOSONAR
             ],
         }
 
@@ -155,7 +155,9 @@ class TestSensitiveDataScrubbing:
         modal = JsonPreviewModal(json_data={})
 
         data = {
-            "level1": {"level2": {"level3": {"level4": {"password": "FAKE_DEEP_SECRET", "public_data": "visible"}}}}
+            "level1": {
+                "level2": {"level3": {"level4": {"password": "FAKE_DEEP_SECRET", "public_data": "visible"}}}  # NOSONAR
+            }
         }
 
         scrubbed = modal._scrub_sensitive_data(data)
@@ -187,7 +189,7 @@ class TestSensitiveDataScrubbing:
         """Test that scrubbing creates a copy and doesn't modify original"""
         modal = JsonPreviewModal(json_data={})
 
-        original = {"username": "admin", "password": "FAKE_TEST_SECRET"}
+        original = {"username": "admin", "password": "FAKE_TEST_SECRET"}  # NOSONAR
 
         scrubbed = modal._scrub_sensitive_data(original)
 
@@ -202,19 +204,19 @@ class TestSensitiveDataScrubbing:
 
         # Test all fields from JsonPreviewModal.SENSITIVE_FIELDS
         data = {
-            "password": "TEST_VALUE",
+            "password": "TEST_VALUE",  # NOSONAR
             "token": "TEST_VALUE",
             "secret": "TEST_VALUE",
             "api_key": "TEST_VALUE",
             "apikey": "TEST_VALUE",
             "ssh_key_data": "TEST_VALUE",
-            "vault_password": "TEST_VALUE",
-            "become_password": "TEST_VALUE",
+            "vault_password": "TEST_VALUE",  # NOSONAR
+            "become_password": "TEST_VALUE",  # NOSONAR
             "credential": "TEST_VALUE",
-            "authorize_password": "TEST_VALUE",
+            "authorize_password": "TEST_VALUE",  # NOSONAR
             "client_secret": "TEST_VALUE",
             "private_key": "TEST_VALUE",
-            "passphrase": "TEST_VALUE",
+            "passphrase": "TEST_VALUE",  # NOSONAR
         }
 
         scrubbed = modal._scrub_sensitive_data(data)
@@ -351,7 +353,7 @@ class TestEdgeCases:
 
         data = {
             "name": "Tëst Crédèntîål 你好",
-            "password": "pàsswørd_unicode_мир",
+            "password": "pàsswørd_unicode_мир",  # NOSONAR
             "description": "🚀 Deployment",
         }  # notsecret
         scrubbed = modal._scrub_sensitive_data(data)
