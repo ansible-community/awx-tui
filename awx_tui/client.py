@@ -181,7 +181,7 @@ class AWXClient:
                 "max_connections": pool._max_connections,
                 "max_keepalive": pool._max_keepalive_connections,
             }
-        except (AttributeError, Exception):
+        except (Exception):
             return None
 
     def _log_connection_event(self, event: str, details: str) -> None:
