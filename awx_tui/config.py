@@ -56,8 +56,8 @@ class InstanceConfig:
             raise ValueError(f"Instance name '{self.name}' is reserved")
 
         # Validate URL
-        if not self.url.startswith(("http://", "https://")):
-            raise ValueError(f"URL must start with http:// or https://, got: {self.url}")
+        if not self.url.startswith(("http://", "https://")):  # NOSONAR
+            raise ValueError(f"URL must start with http:// or https://, got: {self.url}")  # NOSONAR
 
         # Normalize the URL using httpx.URL (same normalization httpx applies to response.url).
         # This strips redundant default ports (https:443, http:80) so that error-path

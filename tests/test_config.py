@@ -74,7 +74,7 @@ class TestInstanceConfig:
             token="test-token",
         )
 
-        with pytest.raises(ValueError, match="http://"):
+        with pytest.raises(ValueError, match="http://"):  # NOSONAR
             instance.validate()
 
     def test_token_missing_for_token_auth(self):
@@ -119,13 +119,13 @@ class TestInstanceConfig:
         """Test that http with explicit port 80 is normalized"""
         instance = InstanceConfig(
             name="test-awx",
-            url="http://awx.example.com:80",
+            url="http://awx.example.com:80",  # NOSONAR
             auth_method="token",
             username="admin",
             token="test-token-123",
         )
         instance.validate()
-        assert instance.url == "http://awx.example.com"
+        assert instance.url == "http://awx.example.com"  # NOSONAR
 
     def test_url_preserves_non_default_port(self):
         """Test that non-default ports are preserved"""
