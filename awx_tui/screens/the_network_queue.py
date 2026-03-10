@@ -199,7 +199,7 @@ class TheNetworkQueueScreen(Screen):
                         str(pool._max_keepalive_connections),
                     )
                     self.pool_data.append((name, client))
-                except (AttributeError, Exception):
+                except (Exception):
                     pool_table.add_row(name, "[yellow]●[/yellow] Unknown", "-", "-", "-", "-", "-")
                     self.pool_data.append((name, client))
             elif isinstance(client, AWXClient):
@@ -289,7 +289,7 @@ class TheNetworkQueueScreen(Screen):
 
                 conn_table.add_row(origin, http_ver, state, req_count)
 
-        except (AttributeError, Exception):
+        except (Exception):
             conn_label.update(f"Connections: {self.selected_pool_name} (introspection unavailable)")
 
     def load_events(self) -> None:
