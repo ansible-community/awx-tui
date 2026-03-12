@@ -322,9 +322,12 @@ class AWXTUIApp(App):
 
     def action_quit(self) -> None:
         """Quit the application"""
-        if self.instance_manager:
-            self.run_worker(self.instance_manager.close_all_clients())
         self.exit()
+
+    async def on_unmount(self) -> None:
+        """Clean up persistent sessions on app shutdown"""
+        if hasattr(self, "instance_manager") and self.instance_manager:
+            await self.instance_manager.close_all_clients()
 
     def action_toggle_debug(self) -> None:
         """Toggle debug console - do nothing if already open"""
