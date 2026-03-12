@@ -111,7 +111,6 @@ class AppConfig:
             "mock_mode": False,
             "pool_max_connections": 20,
             "pool_max_keepalive_connections": 10,
-            "network_queue_refresh_interval": 1,
         }
     )
 
