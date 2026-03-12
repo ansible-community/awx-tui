@@ -315,7 +315,12 @@ class InstanceManager:
         # Get or create client
         client = self.clients.get(name)
         if isinstance(client, InstanceConfig):
-            client = AWXClient(client, debug_logger=self.debug_logger)
+            client = AWXClient(
+                client,
+                api_call_log=self.api_call_log,
+                app_config=self.config,
+                connection_event_log=self.connection_event_log,
+            )
             self.clients[name] = client
 
         # Test connection
