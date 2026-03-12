@@ -189,7 +189,12 @@ class AWXClient:
             return None
 
     def _log_connection_event(self, event: str, details: str) -> None:
-        """Log a connection pool event to the connection event log"""
+        """Log a connection pool event to the connection event log.
+
+        Note: connection_event_log is a shared mutable list written to by all
+        AWXClient instances. Safe under single-threaded asyncio + CPython GIL,
+        but not thread-safe if the concurrency model changes.
+        """
         if self.connection_event_log is None:
             return
 
