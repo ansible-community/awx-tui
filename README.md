@@ -14,7 +14,8 @@ Terminal User Interface for AWX with multi-instance support, built in Python and
 - **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>, Daniel Brennand <dbrenuk@redhat.com>
 - **AWX TUI Logo AI Attribution (AIA):** EAI Hin R Gemini v1.0
 
-> **Note:** This work was mostly AI-generated with human review and may not be subject to traditional copyright protection in some jurisdictions.
+> [!NOTE]
+> This work was mostly AI-generated with human review. We anticipate that it will evolve to incorporate community contributions authored by humans. Our intention is that copyrightable human-authored contributions will be covered by the [MIT license](#license).
 
 ## Code of Conduct
 
