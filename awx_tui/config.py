@@ -437,6 +437,12 @@ class ConfigManager:
             if instance.password:
                 data["instances"][name]["auth"]["password"] = instance.password
 
+            # Add pool settings (only if overridden per-instance)
+            if instance.pool_max_connections is not None:
+                data["instances"][name]["pool_max_connections"] = instance.pool_max_connections
+            if instance.pool_max_keepalive_connections is not None:
+                data["instances"][name]["pool_max_keepalive_connections"] = instance.pool_max_keepalive_connections
+
             # Add cached status
             if instance.last_status:
                 data["instances"][name]["last_status"] = instance.last_status
