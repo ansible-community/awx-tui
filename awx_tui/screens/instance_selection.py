@@ -356,8 +356,8 @@ class InstanceSelectionScreen(Screen):
                 if hasattr(self.app, "instance_manager") and self.app.instance_manager:
                     client = self.app.instance_manager.get_client(name)
                     if isinstance(client, AWXClient):
-                        async with client:
-                            instance_session = client.session
+                        await client.__aenter__()  # Ensure session is open
+                        instance_session = client.session
 
                 ping_result = await check_instance_ping(
                     url=config.url,
