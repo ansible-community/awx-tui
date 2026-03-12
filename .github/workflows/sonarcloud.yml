@@ -6,6 +6,11 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
 jobs:
   sonarcloud:
     name: SonarCloud Scan
@@ -14,59 +19,53 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
+          persist-credentials: false
+          show-progress: false
 
       - name: Download coverage report
-        uses: actions/download-artifact@v5
+        uses: dawidd6/action-download-artifact@2536c51d3d126276eb39f74d6bc9c72ac6ef30d3  # v16
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: "PR Validation"
+          run_id: ${{ github.event.workflow_run.id }}
           name: coverage-report
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
       - name: Get PR information
-        id: pr-info
         if: github.event.workflow_run.event == 'pull_request'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           REPO: ${{ github.repository }}
         run: |
-          pr_data=$(gh pr list --repo "$REPO" --state open --json number,headRefName --jq ".[] | select(.headRefName == \"$HEAD_BRANCH\")")
-          if [ -n "$pr_data" ]; then
-            pr_number=$(echo "$pr_data" | jq -r '.number')
-            pr_branch=$(echo "$pr_data" | jq -r '.headRefName')
-            echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
-            echo "pr_branch=$pr_branch" >> "$GITHUB_OUTPUT"
-            echo "is_pr=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+          PR_NUMBER=$(gh pr list --head "$HEAD_BRANCH" --repo "$REPO" --json number -q '.[0].number')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          if [ -n "$PR_NUMBER" ]; then
+            PR_DATA=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+            echo "PR_BASE=$(echo "$PR_DATA" | jq -r '.base.ref')" >> $GITHUB_ENV
+            echo "PR_HEAD=$(echo "$PR_DATA" | jq -r '.head.ref')" >> $GITHUB_ENV
           fi
 
       - name: Build SonarCloud scanner args
-        id: sonar-args
         env:
-          IS_PR: ${{ steps.pr-info.outputs.is_pr }}
-          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
-          PR_BRANCH: ${{ steps.pr-info.outputs.pr_branch }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_TYPE: ${{ github.event.workflow_run.event }}
         run: |
-          args=""
-          if [ "$IS_PR" == "true" ]; then
-            args="-Dsonar.pullrequest.key=$PR_NUMBER"
-            args="$args -Dsonar.pullrequest.branch=$PR_BRANCH"
-            args="$args -Dsonar.pullrequest.base=devel"
-          else
-            args="-Dsonar.branch.name=$HEAD_BRANCH"
+          SONAR_ARGS="-Dsonar.scm.revision=\"${COMMIT_SHA}\""
+          if [[ "$EVENT_TYPE" == "pull_request" && -n "${PR_NUMBER:-}" ]]; then
+            SONAR_ARGS="${SONAR_ARGS} -Dsonar.pullrequest.key=${PR_NUMBER}"
+            SONAR_ARGS="${SONAR_ARGS} -Dsonar.pullrequest.branch=${PR_HEAD}"
+            SONAR_ARGS="${SONAR_ARGS} -Dsonar.pullrequest.base=${PR_BASE}"
           fi
-          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "SONAR_ARGS=${SONAR_ARGS}" >> $GITHUB_ENV
 
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9  # v7
         env:
           SONAR_TOKEN: ${{ secrets.ANSIBLE_COMMUNITY_ORG_SONAR_TOKEN_CICD_BOT }}
         with:
-          args: ${{ steps.sonar-args.outputs.args }}
+          args: ${{ env.SONAR_ARGS }}
