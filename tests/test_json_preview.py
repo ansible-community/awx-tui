@@ -353,7 +353,7 @@ class TestEdgeCases:
 
         data = {
             "name": "Tëst Crédèntîål 你好",
-            "password": "pàsswørd_unicode_мир",  # NOSONAR
+            "password": "pàsswørd_unicode_мир",  # notsecret NOSONAR
             "description": "🚀 Deployment",
         }  # notsecret
         scrubbed = modal._scrub_sensitive_data(data)
