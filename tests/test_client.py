@@ -169,7 +169,10 @@ class TestAWXClientContext:
 
     @pytest.mark.asyncio
     async def test_connection_pool_limits_configured(self, token_instance):
-        """Test httpx client has explicit connection pool limits"""
+        """Test httpx client has explicit connection pool limits.
+
+        Accesses httpx/httpcore private internals — may need updating on major upgrades.
+        """
         client = AWXClient(token_instance)
 
         async with client:

@@ -166,7 +166,11 @@ class AWXClient:
         self.session = None
 
     def _get_pool_snapshot(self) -> Optional[Dict[str, Any]]:
-        """Capture current connection pool state"""
+        """Capture current connection pool state.
+
+        Uses httpx/httpcore private internals (_transport._pool, _max_connections,
+        _max_keepalive_connections). May break on major httpx/httpcore upgrades.
+        """
         if not self.session or self.session.is_closed:
             return None
         try:

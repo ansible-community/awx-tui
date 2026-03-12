@@ -18,6 +18,9 @@ from textual.widgets import DataTable, Footer, Header, Static
 def _snapshot_pool_connections(pool) -> Tuple[List[Tuple[str, bool, bool]], int, int]:
     """Capture a point-in-time snapshot of all connections in a pool.
 
+    Uses httpcore pool internals (connections, is_idle, is_closed, info).
+    May break on major httpx/httpcore upgrades.
+
     Returns:
         Tuple of (conn_snapshot, idle_count, active_count) where conn_snapshot
         is a list of (info_str, is_idle, is_closed) tuples.
