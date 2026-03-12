@@ -24,31 +24,6 @@ def _prune_api_log(api_call_log: Optional[list], max_entries: int = 1000) -> Non
             api_call_log[:] = api_call_log[-max_entries:]
 
 
-def _log_ping_connection_event(
-    connection_event_log: Optional[list],
-    instance_name: Optional[str],
-    event: str,
-    details: str,
-    max_entries: int = 1000,
-) -> None:
-    """Log a connection event from the ping checker"""
-    if connection_event_log is None:
-        return
-
-    connection_event_log.append(
-        {
-            "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
-            "instance": instance_name or "unknown",
-            "event": event,
-            "details": details,
-            "pool_snapshot": None,
-        }
-    )
-
-    if max_entries > 0 and len(connection_event_log) > max_entries:
-        connection_event_log[:] = connection_event_log[-max_entries:]
-
-
 async def check_instance_ping(
     url: str,
     api_base_path: str = "/api/v2",
