@@ -57,7 +57,7 @@ help:
 # Create config.yaml from template
 config.yaml: config.yaml.development
 	@echo "Creating config.yaml from config.yaml.development..."
-	cp config.yaml.development config.yaml
+	cp config.yaml.development config.yaml && chmod 600 config.yaml
 	@echo "✅ Config created! Please update with your AWX credentials"
 
 # Phony targets (aliases and actions)
