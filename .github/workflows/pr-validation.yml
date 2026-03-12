@@ -64,8 +64,23 @@ jobs:
           python -c "import awx_tui; print(f'AWX TUI version: {awx_tui.__version__}')"
 
       - name: Run tests
+        if: matrix.python-version != '3.13'
         run: |
           python -m pytest tests/ -v --tb=short
+
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.13'
+        run: |
+          python -m pytest tests/ -v --tb=short --cov=awx_tui --cov-report=xml:coverage.xml --cov-report=term
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 30
+          if-no-files-found: warn
 
   package-test:
     name: Package Installation Test
