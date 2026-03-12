@@ -542,7 +542,7 @@ class MockAWXClient:
                     ["Production Playbooks", "Operations Playbooks", "Network Playbooks", "Test Playbooks"]
                 ),
                 inventory_name=random.choice(  # NOSONAR
-                    ["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]
+                    ["Production Servers", "DB Servers", "DNS Servers", "Staging Inventory"]  # NOSONAR
                 ),
                 exec_env_name=random.choice(["ee-29-rhel8", "ee-minimal", "ee-test"]),  # NOSONAR
                 created_by=random.choice(["admin", "ansible", "jenkins", "netops"]),  # NOSONAR
