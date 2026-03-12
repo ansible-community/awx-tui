@@ -128,7 +128,7 @@ async def check_instance_ping(
             if api_call_log is not None:
                 api_call_log.append(
                     {
-                        "timestamp": time.strftime("%H:%M:%S"),
+                        "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
                         "method": "GET",
                         "instance": url,
                         "instance_name": instance_name or "unknown",
@@ -156,7 +156,7 @@ async def check_instance_ping(
         if api_call_log is not None:
             api_call_log.append(
                 {
-                    "timestamp": time.strftime("%H:%M:%S"),
+                    "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
                     "method": "GET",
                     "instance": url,
                     "instance_name": instance_name or "unknown",
@@ -181,7 +181,7 @@ async def check_instance_ping(
         if api_call_log is not None:
             api_call_log.append(
                 {
-                    "timestamp": time.strftime("%H:%M:%S"),
+                    "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
                     "method": "GET",
                     "instance": url,
                     "instance_name": instance_name or "unknown",
@@ -206,7 +206,7 @@ async def check_instance_ping(
         if api_call_log is not None:
             api_call_log.append(
                 {
-                    "timestamp": time.strftime("%H:%M:%S"),
+                    "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
                     "method": "GET",
                     "instance": url,
                     "instance_name": instance_name or "unknown",
