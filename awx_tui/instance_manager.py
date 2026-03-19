@@ -27,7 +27,13 @@ class InstanceManager:
     - Supports mock mode with test instances
     """
 
-    def __init__(self, config: AppConfig, mock_mode: bool = False, api_call_log: Optional[list] = None):
+    def __init__(
+        self,
+        config: AppConfig,
+        mock_mode: bool = False,
+        api_call_log: Optional[list] = None,
+        connection_event_log: Optional[list] = None,
+    ):
         """
         Initialize instance manager
 
@@ -35,10 +41,12 @@ class InstanceManager:
             config: Application configuration
             mock_mode: If True, use mock clients instead of real AWX
             api_call_log: Optional list to log API calls for debug console
+            connection_event_log: Optional list to log connection pool events
         """
         self.config = config
         self.mock_mode = mock_mode
         self.api_call_log = api_call_log
+        self.connection_event_log = connection_event_log
         self.clients: Dict[str, Union[AWXClient, MockAWXClient]] = {}
         self.current_instance: Optional[str] = None
 
@@ -186,7 +194,12 @@ class InstanceManager:
         # If client is an InstanceConfig (real mode), create AWXClient
         if isinstance(client, InstanceConfig):
             # Create and cache the AWXClient
-            awx_client = AWXClient(client, api_call_log=self.api_call_log, app_config=self.config)
+            awx_client = AWXClient(
+                client,
+                api_call_log=self.api_call_log,
+                app_config=self.config,
+                connection_event_log=self.connection_event_log,
+            )
             self.clients[instance_name] = awx_client
             return awx_client
 
@@ -302,7 +315,12 @@ class InstanceManager:
         # Get or create client
         client = self.clients.get(name)
         if isinstance(client, InstanceConfig):
-            client = AWXClient(client, debug_logger=self.debug_logger)
+            client = AWXClient(
+                client,
+                api_call_log=self.api_call_log,
+                app_config=self.config,
+                connection_event_log=self.connection_event_log,
+            )
             self.clients[name] = client
 
         # Test connection
@@ -312,6 +330,12 @@ class InstanceManager:
 
         # MockAWXClient doesn't need async context
         return True
+
+    async def close_all_clients(self) -> None:
+        """Close all persistent AWXClient sessions (for app shutdown)"""
+        for client in self.clients.values():
+            if isinstance(client, AWXClient):
+                await client.close()
 
     def get_instance_display_name(self, instance_name: Optional[str] = None) -> str:
         """

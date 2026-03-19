@@ -36,6 +36,7 @@ class AWXTUIApp(App):
         Binding("ctrl+d", "toggle_debug", "Debug", priority=True),
         Binding("ctrl+o", "the_loaf", "Loaf", priority=True),
         Binding("ctrl+t", "advanced_api_mode", "API Mode", priority=True),
+        Binding("ctrl+n", "the_network_queue", "Net Queue", priority=True),
         Binding("c", "create_mode", "Create", priority=True),
         Binding("i", "show_info", "Info"),
         Binding("?", "show_info", "Help"),
@@ -83,6 +84,9 @@ class AWXTUIApp(App):
 
         # Notification log for The Loaf
         self.notification_log = []
+
+        # Connection event log for The Network Queue
+        self.connection_event_log = []
 
         # Create mode state - persists form data until app close
         self.create_mode_state = {
@@ -179,7 +183,7 @@ class AWXTUIApp(App):
             )
 
         # Pick a random app name for this session
-        self.current_app_name = random.choice(ROTATING_NAMES)
+        self.current_app_name = random.choice(ROTATING_NAMES)  # NOSONAR
         self.title = self.current_app_name
         # self.sub_title = TAGLINE
 
@@ -196,13 +200,17 @@ class AWXTUIApp(App):
         try:
             self.app_config = self.config_manager.load(cli_args=self.cli_args)
         except Exception as e:
-            # If config fails to load, start with empty config
+            # If config fails to load, start with empty config and notify user
             self.log.error(f"Failed to load config: {e}")
             self.app_config = AppConfig()
+            self.notify(f"Config error: {e}", severity="error", timeout=10)
 
         # Initialize instance manager
         self.instance_manager = InstanceManager(
-            self.app_config, mock_mode=self.mock_mode, api_call_log=self.api_call_log
+            self.app_config,
+            mock_mode=self.mock_mode,
+            api_call_log=self.api_call_log,
+            connection_event_log=self.connection_event_log,
         )
 
         # Update title with current instance
@@ -260,7 +268,7 @@ class AWXTUIApp(App):
         available_names = [name for name in ROTATING_NAMES if name != self.current_app_name]
 
         # Pick a random new name
-        self.current_app_name = random.choice(available_names)
+        self.current_app_name = random.choice(available_names)  # NOSONAR
 
         # Update title display
         self._update_title()
@@ -270,7 +278,7 @@ class AWXTUIApp(App):
 
     def _schedule_title_rotation(self) -> None:
         """Schedule the next title rotation at a random interval (5-10 minutes)"""
-        interval = random.uniform(TITLE_ROTATION_MIN, TITLE_ROTATION_MAX)
+        interval = random.uniform(TITLE_ROTATION_MIN, TITLE_ROTATION_MAX)  # NOSONAR
         self.set_timer(interval, self._rotate_title)
 
     def get_dashboard_class(self):
@@ -316,6 +324,11 @@ class AWXTUIApp(App):
         """Quit the application"""
         self.exit()
 
+    async def on_unmount(self) -> None:
+        """Clean up persistent sessions on app shutdown"""
+        if hasattr(self, "instance_manager") and self.instance_manager:
+            await self.instance_manager.close_all_clients()
+
     def action_toggle_debug(self) -> None:
         """Toggle debug console - do nothing if already open"""
         from awx_tui.screens.debug_console import DebugConsoleScreen
@@ -343,6 +356,17 @@ class AWXTUIApp(App):
 
         # Otherwise, open The Loaf
         self.push_screen(TheLoafScreen())
+
+    def action_the_network_queue(self) -> None:
+        """Open The Network Queue - connection pool debugger - do nothing if already open"""
+        from awx_tui.screens.the_network_queue import TheNetworkQueueScreen
+
+        # If The Network Queue is already the topmost screen, do nothing
+        if isinstance(self.screen, TheNetworkQueueScreen):
+            return
+
+        # Otherwise, open The Network Queue
+        self.push_screen(TheNetworkQueueScreen())
 
     def notify(
         self,

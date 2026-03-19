@@ -962,7 +962,7 @@ class CreateCredentialScreen(Screen):
             if token:
                 credential_data["inputs"]["token"] = token
             else:
-                credential_data["inputs"]["token"] = "REQUIRED"
+                credential_data["inputs"]["token"] = "REQUIRED"  # NOSONAR
 
         elif kind == "vault":  # Vault
             vault_password = self.query_one("#vault_password", Input).value.strip()
