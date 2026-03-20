@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import anyio
+
 if TYPE_CHECKING:
     from textual.app import App
 
@@ -98,8 +100,8 @@ class HotReloadManager:
                 return
 
             # Read state file
-            with open(HOT_RELOAD_STATE_FILE, "r") as f:
-                state = json.load(f)
+            async with await anyio.open_file(HOT_RELOAD_STATE_FILE, "r") as f:
+                state = await json.load(f)
 
             screen_class_name = state.get("screen_class")
             if not screen_class_name:
