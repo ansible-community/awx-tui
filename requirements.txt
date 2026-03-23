@@ -6,6 +6,7 @@ textual>=0.40.0
 httpx>=0.25.0
 pyyaml>=6.0
 rich>=13.0.0
+anyio>=4.0.0
 
 # Development dependencies (optional)
 # Install: pip install -r requirements.txt -r requirements-dev.txt

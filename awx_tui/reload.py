@@ -101,7 +101,8 @@ class HotReloadManager:
 
             # Read state file
             async with await anyio.open_file(HOT_RELOAD_STATE_FILE, "r") as f:
-                state = await json.load(f)
+                content = await f.read()
+                state = json.loads(content)
 
             screen_class_name = state.get("screen_class")
             if not screen_class_name:
