@@ -10,9 +10,9 @@ Terminal User Interface for AWX with multi-instance support, built in Python and
 
 **This project was substantially coded by Large Language Models (LLMs) with human review.**
 
-- **AI Attribution (AIA):** EAI Hin R Claude Code v1.0 (Claude Sonnet and Opus)
+- **[AI Attribution](https://aiattribution.github.io/):** AIA PAI SeCeNc Hin R Claude Code (Opus, Sonnet & Haiku) v1.0
 - **Vibe-Coders:** Andrew Potozniak <potozniak@redhat.com>, John Mitchell <jmitchel@redhat.com>, John Barker <jobarker@redhat.com>, Daniel Brennand <dbrenuk@redhat.com>
-- **AWX TUI Logo AI Attribution (AIA):** EAI Hin R Gemini v1.0
+- **AWX TUI Logo AI Attribution:** AIA EAI Hin R Gemini v1.0
 
 > [!NOTE]
 > This work was mostly AI-generated with human review. We anticipate that it will evolve to incorporate community contributions authored by humans. Our intention is that copyrightable human-authored contributions will be covered by the [MIT license](#license).
