@@ -320,6 +320,21 @@ class AWXTUIApp(App):
         # Hot reload manager will restore the previous screen if in dev mode
         await self.hot_reload.try_restore_screen()
 
+    HJKL_MAP = {"h": "left", "j": "down", "k": "up", "l": "right"}
+
+    def on_key(self, event) -> None:
+        """Remap hjkl to arrow keys for vim-style navigation"""
+        if event.key not in self.HJKL_MAP:
+            return
+        # Skip remapping when typing in text input widgets
+        from textual.widgets import Input, TextArea
+
+        if isinstance(self.focused, (Input, TextArea)):
+            return
+        self.simulate_key(self.HJKL_MAP[event.key])
+        event.stop()
+        event.prevent_default()
+
     def action_quit(self) -> None:
         """Quit the application"""
         self.exit()

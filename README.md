@@ -284,11 +284,12 @@ make clean       # Remove venv and build artifacts
 - `Ctrl+T` - Advanced API Mode
 - `Ctrl+O` - The Loaf (notification history)
 - `Ctrl+N` - The Network Queue (connection pool management)
+- `H`/`J`/`K`/`L` - Vim-style navigation (left/down/up/right)
 - `I` or `?` - AWX-TUI Info
 
 ### Dashboard
 - `Tab` - Switch between tables
-- `↑`/`↓` - Navigate
+- `↑`/`↓` or `K`/`J` - Navigate
 - `Enter` - Job details
 - `R` - Refresh
 

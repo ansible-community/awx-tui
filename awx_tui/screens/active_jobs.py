@@ -167,7 +167,7 @@ class ActiveJobsScreen(Screen):
         ("4", "goto_projects", "Projects"),
         ("5", "goto_templates", "Templates"),
         ("6", "goto_inventories", "Inventories"),
-        ("l", "load_more", "Load More"),
+        ("m", "load_more", "Load More"),
         ("ctrl+k", "cancel_job", "Cancel"),
         ("ctrl+f", "focus_filter", "Filter"),
         ("ctrl+d", "debug_console", "Debug"),
