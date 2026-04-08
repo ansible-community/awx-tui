@@ -55,10 +55,20 @@ Issues = "https://github.com/ansible-community/awx-tui/issues"
 awx-tui = "awx_tui.main:main"
 
 [tool.setuptools]
-packages = ["awx_tui", "awx_tui.screens", "awx_tui.modals", "awx_tui.dashboards", "awx_tui.utils"]
+packages = [
+    "awx_tui",
+    "awx_tui.screens",
+    "awx_tui.modals",
+    "awx_tui.dashboards",
+    "awx_tui.dashboards.classic",
+    "awx_tui.dashboards.sleek",
+    "awx_tui.dashboards.sleek.panels",
+    "awx_tui.dashboards.sleek.widgets",
+    "awx_tui.utils",
+]
 
 [tool.setuptools.package-data]
-awx_tui = ["py.typed"]
+awx_tui = ["py.typed", "**/*.tcss"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
