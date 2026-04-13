@@ -401,5 +401,5 @@ Too much personality to render in ASCII art, but lives on in our hearts (and our
 
 ---
 
-**Version:** 0.1.0-beta
+**Version:** 0.1.1
 **Status:** In Development

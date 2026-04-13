@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "awx-tui"
-version = "0.1.0-beta"
+version = "0.1.1"
 description = "Terminal User Interface for AWX - Rage Tater Edition"
 readme = "README.md"
 license = {text = "MIT"}
