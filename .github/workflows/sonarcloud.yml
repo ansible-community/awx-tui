@@ -27,7 +27,7 @@ jobs:
           show-progress: false
 
       - name: Download coverage report
-        uses: dawidd6/action-download-artifact@8a338493df3d275e4a7a63bcff3b8fe97e51a927  # v19
+        uses: dawidd6/action-download-artifact@8305c0f1062bb0d184d09ef4493ecb9288447732  # v20
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: "PR Validation"
@@ -64,7 +64,7 @@ jobs:
           echo "SONAR_ARGS=${SONAR_ARGS}" >> $GITHUB_ENV
 
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9  # v7
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4  # v7
         env:
           SONAR_TOKEN: ${{ secrets.ANSIBLE_COMMUNITY_ORG_SONAR_TOKEN_CICD_BOT }}
         with:
