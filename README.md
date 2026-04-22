@@ -66,20 +66,28 @@ For more information about communication, see the [Ansible communication guide](
 
 Install the latest release of `awx-tui` from [PyPI](https://pypi.org/project/awx-tui/) using your preferred installer:
 
+**uv (recommended)**
+
+Install as an isolated CLI tool:
+
+```bash
+uv tool install awx-tui
+```
+
 **pip**
+
+Install into the active environment:
 
 ```bash
 pip install awx-tui
 ```
 
-**uv**
+**uv pip**
+
+Install into the active environment:
 
 ```bash
-# Install into the active environment
 uv pip install awx-tui
-
-# Or install as an isolated CLI tool (recommended)
-uv tool install awx-tui
 ```
 
 Once installed, the `awx-tui` command is available on your `PATH`:
