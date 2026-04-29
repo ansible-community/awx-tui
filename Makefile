@@ -1,4 +1,4 @@
-.PHONY: help setup install test run run-mock dev dev-mock dev-notmux dev-mock-notmux dev-mock-sleek console stop-dev clean
+.PHONY: help setup install test test-basic coverage run run-mock dev dev-mock dev-mock-debug dev-notmux dev-mock-notmux dev-mock-sleek console stop-dev lint lint-fix clean clean-config
 
 # Use bash for all commands
 SHELL := /bin/bash
@@ -28,6 +28,10 @@ help:
 	@echo "  make test         - Run all tests"
 	@echo "  make test-basic   - Run basic smoke tests"
 	@echo "  make coverage     - Run tests with coverage report"
+	@echo ""
+	@echo "Linting & Formatting:"
+	@echo "  make lint         - Check linting and formatting with ruff and black"
+	@echo "  make lint-fix     - Apply linting and formatting fixes with ruff and black"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean        - Remove venv and build artifacts"
@@ -194,3 +198,8 @@ clean:
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@echo "✅ Cleanup complete!"
+
+clean-config:
+	@echo "Removing config.yaml..."
+	rm -f config.yaml
+	@echo "✅ config.yaml removed!"
