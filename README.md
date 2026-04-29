@@ -4,7 +4,7 @@
 
 Terminal User Interface for AWX with multi-instance support, built in Python and Textual.
 
-![AWX TUI Logo](./img/AWX-TUI-logo-640px.png)
+![AWX TUI Logo](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/AWX-TUI-logo-640px.png)
 
 ## AI-Assisted Project
 
@@ -36,15 +36,15 @@ For more information about communication, see the [Ansible communication guide](
 
 |                                                                    |                                                                                  |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| ![Multi-Instance Selection](./img/001-awx-tui-multi-instances.png) | ![Classic Dashboard](./img/002-awx-tui-classic-dashboard-v1.png)                 |
-| ![Sleek Dashboard](./img/003-awx-tui-sleek-dashboard-v1.png)       | ![Historic Jobs](./img/004-awx-tui-historic-jobs.png)                            |
-| ![Active Jobs](./img/005-awx-tui-active-jobs.png)                  | ![Projects](./img/006-awx-tui-projects.png)                                      |
-| ![Job Templates](./img/007-awx-tui-job-templates.png)              | ![Inventories](./img/008-awx-tui-inventories.png)                                |
-| ![Debug Console](./img/009-awx-tui-debug-console.png)              | ![Advanced API Mode](./img/010-awx-tui-advanced-api-mode.png)                    |
-| ![Create Mode](./img/011-awx-tui-create-mode.png)                  | ![Create Job Template](./img/012-awx-tui-create-job-template.png)                |
-| ![Create Project](./img/013-awx-tui-create-project.png)            | ![API Payload Preview](./img/014-awx-tui-create-project-api-payload-preview.png) |
-| ![Job Logs](./img/015-awx-tui-job-logs.png)                        | ![Job Events](./img/016-awx-tui-job-events.png)                                  |
-| ![Launch Job](./img/017-awx-tui-launch-job.png)                    | ![Sync Project](./img/018-awx-tui-sync-project.png)                              |
+| ![Multi-Instance Selection](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/001-awx-tui-multi-instances.png) | ![Classic Dashboard](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/002-awx-tui-classic-dashboard-v1.png)                 |
+| ![Sleek Dashboard](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/003-awx-tui-sleek-dashboard-v1.png)       | ![Historic Jobs](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/004-awx-tui-historic-jobs.png)                            |
+| ![Active Jobs](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/005-awx-tui-active-jobs.png)                  | ![Projects](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/006-awx-tui-projects.png)                                      |
+| ![Job Templates](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/007-awx-tui-job-templates.png)              | ![Inventories](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/008-awx-tui-inventories.png)                                |
+| ![Debug Console](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/009-awx-tui-debug-console.png)              | ![Advanced API Mode](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/010-awx-tui-advanced-api-mode.png)                    |
+| ![Create Mode](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/011-awx-tui-create-mode.png)                  | ![Create Job Template](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/012-awx-tui-create-job-template.png)                |
+| ![Create Project](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/013-awx-tui-create-project.png)            | ![API Payload Preview](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/014-awx-tui-create-project-api-payload-preview.png) |
+| ![Job Logs](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/015-awx-tui-job-logs.png)                        | ![Job Events](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/016-awx-tui-job-events.png)                                  |
+| ![Launch Job](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/017-awx-tui-launch-job.png)                    | ![Sync Project](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/018-awx-tui-sync-project.png)                              |
 
 ---
 
@@ -61,6 +61,43 @@ For more information about communication, see the [Ansible communication guide](
 ---
 
 ## Quick Start
+
+### Install from PyPI
+
+Install the latest release of `awx-tui` from [PyPI](https://pypi.org/project/awx-tui/) using your preferred installer:
+
+**uv (recommended)**
+
+Install as an isolated CLI tool:
+
+```bash
+uv tool install awx-tui
+```
+
+**pip**
+
+Install into the active environment:
+
+```bash
+pip install awx-tui
+```
+
+**uv pip**
+
+Install into the active environment:
+
+```bash
+uv pip install awx-tui
+```
+
+Once installed, the `awx-tui` command is available on your `PATH`:
+
+```bash
+awx-tui
+```
+
+> [!NOTE]
+> Requires Python 3.12+. See [Requirements](#requirements) for details. To configure AWX instance connections, see the [configuration](#configure-an-awx-instance-connection-via-environment-variables-and-launch-awx-tui) sections below.
 
 ### Clone Project Source
 
@@ -182,7 +219,7 @@ Configuration file locations:
 - **Non-Development:** `~/.config/awx-tui/config.yaml`
 - **Development:** `./config.yaml` (within the repository root, for use with make targets)
 
-See [config.yaml.example](./config.yaml.example) for complete configuration guide.
+See [config.yaml.example](https://github.com/ansible-community/awx-tui/blob/devel/config.yaml.example) for complete configuration guide.
 
 ---
 
@@ -381,7 +418,7 @@ make clean       # Remove venv and build artifacts
 
 ## License
 
-**MIT License** - See [LICENSE](LICENSE)
+**MIT License** - See [LICENSE](https://github.com/ansible-community/awx-tui/blob/devel/LICENSE)
 
 ---
 
