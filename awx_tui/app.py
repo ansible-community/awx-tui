@@ -12,7 +12,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, Header
 
-from awx_tui import ROTATING_NAMES
+from awx_tui import ROTATING_NAMES, __version__
 from awx_tui.config import AppConfig, ConfigManager
 from awx_tui.instance_manager import InstanceManager
 from awx_tui.reload import HotReloadManager
@@ -113,7 +113,7 @@ class AWXTUIApp(App):
                         "duration_ms": 234,
                         "size_bytes": 1024,
                         "request_headers": {
-                            "User-Agent": "awx-tui/0.1.0-beta",
+                            "User-Agent": f"awx-tui/{__version__}",
                             "Accept": "application/json",
                             "X-Request-ID": "abc123-def456-ghi789",
                         },
@@ -138,7 +138,7 @@ class AWXTUIApp(App):
                         "duration_ms": 456,
                         "size_bytes": 2048,
                         "request_headers": {
-                            "User-Agent": "awx-tui/0.1.0-beta",
+                            "User-Agent": f"awx-tui/{__version__}",
                             "Accept": "application/json",
                             "X-Request-ID": "xyz789-uvw012-rst345",
                         },
@@ -163,7 +163,7 @@ class AWXTUIApp(App):
                         "duration_ms": 2300,
                         "size_bytes": 4096,
                         "request_headers": {
-                            "User-Agent": "awx-tui/0.1.0-beta",
+                            "User-Agent": f"awx-tui/{__version__}",
                             "Accept": "application/json",
                             "X-Request-ID": "lmn456-opq789-rst012",
                         },
