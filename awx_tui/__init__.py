@@ -8,7 +8,9 @@ Model: Claude Sonnet 4.5
 Vibe-Coder: Andrew Potozniak <potozniak@redhat.com>
 """
 
-__version__ = "0.1.0-beta"
+from importlib.metadata import version
+
+__version__ = version("awx-tui")
 __author__ = "Andrew Potozniak"
 __email__ = "potozniak@redhat.com"
 __license__ = "MIT"
