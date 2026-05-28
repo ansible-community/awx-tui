@@ -34,8 +34,8 @@ For more information about communication, see the [Ansible communication guide](
 
 ## Screenshots
 
-|                                                                    |                                                                                  |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+|                                                                                                                                    |                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ![Multi-Instance Selection](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/001-awx-tui-multi-instances.png) | ![Classic Dashboard](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/002-awx-tui-classic-dashboard-v1.png)                 |
 | ![Sleek Dashboard](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/003-awx-tui-sleek-dashboard-v1.png)       | ![Historic Jobs](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/004-awx-tui-historic-jobs.png)                            |
 | ![Active Jobs](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/005-awx-tui-active-jobs.png)                  | ![Projects](https://raw.githubusercontent.com/ansible-community/awx-tui/devel/img/006-awx-tui-projects.png)                                      |
@@ -435,8 +435,3 @@ For bugs or feature requests: https://github.com/ansible-community/awx-tui/issue
 **Rage-Tater** 🥔 - The Starchy Angry Automation Potato
 
 Too much personality to render in ASCII art, but lives on in our hearts (and our tagline).
-
----
-
-**Version:** 0.1.1
-**Status:** In Development
