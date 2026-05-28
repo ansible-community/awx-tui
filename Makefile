@@ -46,17 +46,15 @@ help:
 	python3 -m venv .venv
 
 # Install package and dependencies (produces awx-tui executable)
-.venv/bin/awx-tui: .venv requirements.txt requirements-dev.txt
+.venv/bin/awx-tui: .venv pyproject.toml
 	@echo "Installing package in development mode..."
-	.venv/bin/pip install -e .
-	@echo "Installing development dependencies..."
-	.venv/bin/pip install -r requirements-dev.txt
+	.venv/bin/pip install -e ".[dev]"
 	@echo "✅ Installation complete!"
 
 # Install pytest (for testing)
-.venv/bin/pytest: .venv requirements-dev.txt
+.venv/bin/pytest: .venv pyproject.toml
 	@echo "Installing development dependencies..."
-	.venv/bin/pip install -r requirements-dev.txt
+	.venv/bin/pip install -e ".[dev]"
 
 # Create config.yaml from template
 config.yaml: config.yaml.development
@@ -173,9 +171,9 @@ coverage:
 	@echo "📊 Coverage report generated in htmlcov/index.html"
 
 # Install formatters and linters
-.venv/bin/ruff: .venv requirements-lint.txt
+.venv/bin/ruff: .venv pyproject.toml
 	@echo "Installing linting dependencies..."
-	.venv/bin/pip install -r requirements-lint.txt
+	.venv/bin/pip install -e ".[lint]"
 
 lint: .venv/bin/ruff
 	@echo "Checking Linting and Formatting..."
