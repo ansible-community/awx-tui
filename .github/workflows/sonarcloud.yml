@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
@@ -64,7 +64,7 @@ jobs:
           echo "SONAR_ARGS=${SONAR_ARGS}" >> $GITHUB_ENV
 
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995  # v7
+        uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e  # v7
         env:
           SONAR_TOKEN: ${{ secrets.ANSIBLE_COMMUNITY_ORG_SONAR_TOKEN_CICD_BOT }}
         with:
