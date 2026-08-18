@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
@@ -27,7 +27,7 @@ jobs:
           show-progress: false
 
       - name: Download coverage report
-        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151  # v21
+        uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4  # v23
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: "PR Validation"
@@ -64,7 +64,7 @@ jobs:
           echo "SONAR_ARGS=${SONAR_ARGS}" >> $GITHUB_ENV
 
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995  # v7
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f  # v7
         env:
           SONAR_TOKEN: ${{ secrets.ANSIBLE_COMMUNITY_ORG_SONAR_TOKEN_CICD_BOT }}
         with:
