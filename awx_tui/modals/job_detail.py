@@ -17,6 +17,12 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Header, RichLog, Static, TabbedContent, TabPane
 
+from awx_tui.utils import (
+    format_workflow_progress_bar,
+    order_workflow_nodes,
+    summarize_workflow_progress,
+)
+
 
 class JobInfoHeader(Static):
     """Compact job info header (3-4 lines across full width)"""
@@ -25,12 +31,13 @@ class JobInfoHeader(Static):
         super().__init__(**kwargs)
         self.job_data = None
 
-    def update_job_info(self, job_data: dict, last_updated: datetime = None):
+    def update_job_info(self, job_data: dict, last_updated: datetime = None, workflow_progress: str = None):
         """Update displayed job information
 
         Args:
             job_data: Job data from API
             last_updated: Timestamp of last update (only shown for running jobs)
+            workflow_progress: Optional formatted workflow progress bar string
         """
         self.job_data = job_data
 
@@ -112,8 +119,15 @@ class JobInfoHeader(Static):
         if status in ("running", "pending", "waiting") and last_updated:
             status_text += f" (Updated: {last_updated.strftime('%H:%M:%S')})"
 
-        # Build compact 4-line header
-        info_text = f"""Job #{job_id} {type_emoji} {name[:60]} | {status_text} | Launched via: {launch_emoji} {launch_type.title()}
+        # Build compact 3-line header
+        if job_type == "workflow_job":
+            wf_template = summary.get("workflow_job_template", {}).get("name", template)
+            progress_line = f"📊 Progress: {workflow_progress}" if workflow_progress else "📊 Progress: Loading nodes..."
+            info_text = f"""Workflow Job #{job_id} {type_emoji} {name[:60]} | {status_text} | Launched via: {launch_emoji} {launch_type.title()}
+👤 {user} | 🎯 {wf_template[:35]} | ⏱ {started_str} → 🏁 {finished_str} | ⌛ {duration_str}
+{progress_line}"""
+        else:
+            info_text = f"""Job #{job_id} {type_emoji} {name[:60]} | {status_text} | Launched via: {launch_emoji} {launch_type.title()}
 👤 {user} | 📦 {project[:30]} | 🎯 {template[:30]} | 📋 {inventory[:25]}
 📄 {playbook[:40]} | 🧵 {forks} | 🍕 {job_slice_count} | ⏱ {started_str} → 🏁 {finished_str} | ⌛ {duration_str}"""
 
@@ -153,7 +167,8 @@ class JobDetailModal(ModalScreen):
         height: 1fr;
     }
 
-    #job-events-table {
+    #job-events-table,
+    #workflow-nodes-table {
         height: 1fr;
     }
 
@@ -186,6 +201,7 @@ class JobDetailModal(ModalScreen):
         self._last_event_counter = 0  # Track last seen event for incremental fetching
         self._refreshing = False
         self._last_updated = None  # Track when job data was last refreshed
+        self._workflow_nodes = []  # Ordered workflow node entries (for workflow_job)
 
         # Map job type to API endpoint
         self._job_endpoint_map = {
@@ -207,15 +223,23 @@ class JobDetailModal(ModalScreen):
 
             # Bottom: Tabbed content area
             with TabbedContent(id="job-content-tabs"):
-                with TabPane("STDOUT", id="tab-stdout"):
-                    # Configurable word wrap for STDOUT (default: True for better readability)
-                    wrap_stdout = self.app.app_config.preferences.get("job_detail_stdout_wrap", True)
-                    yield RichLog(id="job-stdout-log", wrap=wrap_stdout, highlight=False, markup=False)
+                if self.job_type == "workflow_job":
+                    with TabPane("Workflow Nodes (Enter to inspect)", id="tab-workflow-nodes"):
+                        nodes_table = DataTable(id="workflow-nodes-table", cursor_type="row")
+                        nodes_table.add_columns("Step", "Node / Template", "Branch", "Type", "Status", "Job #", "Elapsed")
+                        yield nodes_table
+                else:
+                    with TabPane("STDOUT", id="tab-stdout"):
+                        # Configurable word wrap for STDOUT (default: True for better readability)
+                        wrap_stdout = self.app.app_config.preferences.get("job_detail_stdout_wrap", True)
+                        yield RichLog(id="job-stdout-log", wrap=wrap_stdout, highlight=False, markup=False)
 
-                with TabPane("Job Events", id="tab-events"):
-                    events_table = DataTable(id="job-events-table", show_cursor=False)
-                    events_table.add_columns("Counter", "Event", "Play", "Role", "Task", "Host", "Duration", "Status")
-                    yield events_table
+                    with TabPane("Job Events", id="tab-events"):
+                        events_table = DataTable(id="job-events-table", show_cursor=False)
+                        events_table.add_columns(
+                            "Counter", "Event", "Play", "Role", "Task", "Host", "Duration", "Status"
+                        )
+                        yield events_table
 
             yield Footer()
 
@@ -279,8 +303,12 @@ class JobDetailModal(ModalScreen):
                 self._schedule_next_refresh()
                 self.app.log.debug(f"Started auto-refresh timer for active job {self.job_id} (status: {status})")
 
+        # Fetch workflow nodes for workflow_job
+        if self.job_type == "workflow_job":
+            await self._fetch_and_display_workflow_nodes(client, endpoint_base, job_info_header)
+            return
+
         # Fetch job events (available for job and project_update types)
-        # Workflow jobs use workflow_nodes instead, so skip those
         if self.job_type in ("job", "project_update", "inventory_update", "system_job"):
             try:
                 # Build events endpoint based on job type
@@ -327,15 +355,115 @@ class JobDetailModal(ModalScreen):
                 stdout_log.clear()
                 stdout_log.write(f"[STDOUT not available for {self.job_type}]")
         else:
-            # For workflow_job and other types without events
+            # For other types without events
             table = self.query_one("#job-events-table", DataTable)
             table.clear()
             stdout_log = self.query_one("#job-stdout-log", RichLog)
             stdout_log.clear()
-            if self.job_type == "workflow_job":
-                stdout_log.write("[Workflow jobs display workflow nodes, not job events. Feature coming soon.]")
+            stdout_log.write(f"[STDOUT not available for {self.job_type}]")
+
+    async def _fetch_and_display_workflow_nodes(self, client, endpoint_base: str, job_info_header: JobInfoHeader) -> None:
+        """Fetch workflow nodes, compute progress, and update workflow nodes table"""
+        nodes_endpoint = f"{endpoint_base}/{self.job_id}/workflow_nodes/"
+        try:
+            if hasattr(client, "get_all_pages"):
+                raw_nodes = await client.get_all_pages(nodes_endpoint, params={"page_size": 200})
             else:
-                stdout_log.write(f"[STDOUT not available for {self.job_type}]")
+                resp = await client.get(nodes_endpoint, params={"page_size": 200})
+                raw_nodes = resp.get("results", [])
+
+            ordered_nodes = order_workflow_nodes(raw_nodes)
+            self._workflow_nodes = ordered_nodes
+
+            summary = summarize_workflow_progress(ordered_nodes)
+            progress_bar = format_workflow_progress_bar(summary)
+            job_info_header.update_job_info(
+                self.job_data,
+                last_updated=self._last_updated,
+                workflow_progress=progress_bar,
+            )
+
+            self._update_workflow_nodes_table(ordered_nodes)
+        except Exception as e:
+            self.app.log.warning(f"Workflow nodes not available for job {self.job_id}: {e}")
+            job_info_header.update_job_info(
+                self.job_data,
+                last_updated=self._last_updated,
+                workflow_progress=f"[red]Error loading nodes: {e}[/red]",
+            )
+
+    def _update_workflow_nodes_table(self, ordered_nodes: list) -> None:
+        """Update workflow nodes DataTable while preserving cursor position"""
+        table = self.query_one("#workflow-nodes-table", DataTable)
+        prev_row = table.cursor_row if table.row_count > 0 else 0
+        table.clear()
+
+        status_display_map = {
+            "successful": "[green]✓ Successful[/green]",
+            "failed": "[red]✗ Failed[/red]",
+            "error": "[red]‼ Error[/red]",
+            "canceled": "[yellow]⚠ Canceled[/yellow]",
+            "running": "[cyan]🏃 Running[/cyan]",
+            "pending": "[yellow]⏳ Pending[/yellow]",
+            "waiting": "[yellow]⏳ Waiting[/yellow]",
+            "waiting_approval": "[magenta]⏸ Awaiting Approval[/magenta]",
+            "skipped": "[dim]⊘ Skipped[/dim]",
+            "not_run": "[dim]○ Not Run[/dim]",
+        }
+
+        type_emoji_map = {
+            "job": "🚀 Job",
+            "project_update": "🔄 Project",
+            "inventory_update": "📥 Inventory",
+            "workflow_job": "🔗 Workflow",
+            "workflow_approval": "✋ Approval",
+            "system_job": "🔧 System",
+        }
+
+        for entry in ordered_nodes:
+            indent = "  " * min(entry["depth"], 4)
+            node_name = f"{indent}{entry['name'][:40]}"
+            status_str = status_display_map.get(entry["status"], f"❓ {entry['status']}")
+            type_str = type_emoji_map.get(entry["node_type"], entry["node_type"])
+            job_id_str = f"#{entry['job_id']}" if entry["job_id"] else "-"
+            elapsed = entry.get("elapsed")
+            elapsed_str = f"{elapsed:.1f}s" if elapsed else "-"
+
+            table.add_row(
+                str(entry["step"]),
+                node_name,
+                entry["branch"],
+                type_str,
+                status_str,
+                job_id_str,
+                elapsed_str,
+            )
+
+        if table.row_count > 0:
+            target_row = min(prev_row, table.row_count - 1)
+            table.cursor_coordinate = (target_row, 0)
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Drill down into a child job when Enter is pressed on a workflow node"""
+        if event.data_table.id != "workflow-nodes-table":
+            return
+
+        row_idx = event.cursor_row
+        if row_idx < 0 or row_idx >= len(self._workflow_nodes):
+            return
+
+        entry = self._workflow_nodes[row_idx]
+        child_job_id = entry.get("job_id")
+        if not child_job_id:
+            status = entry.get("status", "not_run")
+            if status == "skipped":
+                self.notify(f"Node '{entry['name']}' was skipped", severity="information", timeout=3)
+            else:
+                self.notify(f"Node '{entry['name']}' has not started a job yet", severity="warning", timeout=3)
+            return
+
+        child_job_type = entry.get("node_type", "job")
+        self.app.push_screen(JobDetailModal(job_id=child_job_id, job_type=child_job_type))
 
     def _update_events_table(self, events: list, append=False) -> None:
         """Update job events table"""
