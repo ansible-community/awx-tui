@@ -52,10 +52,9 @@ class WorkflowStructureModal(ModalScreen[Optional[str]]):
     }
 
     #wf-structure-actions {
-        dock: bottom;
-        height: 3;
+        height: auto;
         align: center middle;
-        padding: 0 1;
+        padding: 1;
         border-top: solid $primary;
     }
 
