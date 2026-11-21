@@ -84,17 +84,23 @@ class ConfirmCancelModal(ModalScreen[bool]):
         job_id = self.job_data.get("id", "Unknown")
         name = self.job_data.get("name", "Unknown")
         status = self.job_data.get("status", "unknown")
+        is_workflow = self.job_data.get("type") == "workflow_job"
 
         summary = self.job_data.get("summary_fields", {})
         user = summary.get("created_by", {}).get("username", "N/A")
-        template = summary.get("job_template", {}).get("name", "N/A")
+        if is_workflow:
+            template = summary.get("workflow_job_template", {}).get("name", "N/A")
+            label = "Workflow Job"
+        else:
+            template = summary.get("job_template", {}).get("name", "N/A")
+            label = "Job"
 
-        return f"""Job #{job_id}: {name}
+        return f"""{label} #{job_id}: {name}
 Status: {status.upper()}
 Template: {template}
 User: {user}
 
-Are you sure you want to cancel this job?
+Are you sure you want to cancel this {label.lower()}?
 This action cannot be undone."""
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

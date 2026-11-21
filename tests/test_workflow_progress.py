@@ -151,3 +151,76 @@ def test_mock_client_workflow_endpoints():
     assert summary["total"] == 5
     assert summary["completed"] == 1
     assert summary["running"] == 1
+
+
+def test_mock_client_workflow_actions():
+    client = MockAWXClient(instance_name="mock-dev")
+
+    launched = asyncio.run(client.post("/api/v2/workflow_job_templates/10/launch/", data={}))
+    assert launched["type"] == "workflow_job"
+    assert launched["status"] == "running"
+
+    relaunched = asyncio.run(client.post(f"/api/v2/workflow_jobs/{launched['id']}/relaunch/", data={"hosts": "failed"}))
+    assert relaunched["type"] == "workflow_job"
+    assert relaunched["launch_type"] == "relaunch"
+    assert relaunched["id"] != launched["id"]
+
+    approved = asyncio.run(client.post("/api/v2/workflow_approvals/42/approve/", data={}))
+    assert approved["status"] == "approved"
+
+    denied = asyncio.run(client.post("/api/v2/workflow_approvals/43/deny/", data={}))
+    assert denied["status"] == "denied"
+
+
+def test_workflow_modal_formatting():
+    from awx_tui.modals.confirm_approval import ConfirmApprovalModal
+    from awx_tui.modals.confirm_cancel import ConfirmCancelModal
+    from awx_tui.modals.confirm_launch import ConfirmLaunchModal
+    from awx_tui.modals.confirm_relaunch import ConfirmRelaunchModal
+
+    wf_template = {
+        "id": 10,
+        "type": "workflow_job_template",
+        "name": "Deploy Pipeline",
+        "description": "End-to-end deploy workflow",
+        "summary_fields": {"organization": {"name": "Default"}},
+    }
+    launch_modal = ConfirmLaunchModal(wf_template)
+    launch_info = launch_modal._format_template_info()
+    assert "Workflow Template: Deploy Pipeline" in launch_info
+    assert "Playbook:" not in launch_info
+
+    wf_job = {
+        "id": 500,
+        "type": "workflow_job",
+        "name": "Deploy Pipeline",
+        "status": "failed",
+        "summary_fields": {
+            "organization": {"name": "Default"},
+            "created_by": {"username": "admin"},
+            "workflow_job_template": {"name": "Deploy Pipeline"},
+        },
+    }
+    relaunch_modal = ConfirmRelaunchModal(wf_job)
+    relaunch_info = relaunch_modal._format_job_info()
+    assert "Workflow Job ID: #500" in relaunch_info
+    assert "Workflow Template: Deploy Pipeline" in relaunch_info
+
+    cancel_modal = ConfirmCancelModal(wf_job)
+    cancel_info = cancel_modal._format_job_info()
+    assert "Workflow Job #500: Deploy Pipeline" in cancel_info
+    assert "Template: Deploy Pipeline" in cancel_info
+
+    approval_modal = ConfirmApprovalModal(
+        {
+            "name": "Prod Gate",
+            "job_id": 77,
+            "branch": "on success",
+            "node": {"summary_fields": {"job": {"description": "Approve prod rollout"}}},
+        }
+    )
+    approval_info = approval_modal._format_approval_info()
+    assert "Approval Node: Prod Gate" in approval_info
+    assert "Approval ID: #77" in approval_info
+    assert "Approve prod rollout" in approval_info
+

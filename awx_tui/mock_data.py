@@ -1580,6 +1580,11 @@ class MockAWXClient:
         """Mock POST request"""
         await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
 
+        # Handle workflow job template launch
+        if "/workflow_job_templates/" in endpoint and endpoint.endswith("/launch/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._launch_workflow_template(template_id, data or {})
+
         # Handle job template launch
         if "/job_templates/" in endpoint and endpoint.endswith("/launch/"):
             # Extract template ID from endpoint: /api/v2/job_templates/{id}/launch/
@@ -1592,11 +1597,22 @@ class MockAWXClient:
             project_id = int(endpoint.split("/")[-3])
             return self._sync_project(project_id)
 
+        # Handle workflow job relaunch
+        if "/workflow_jobs/" in endpoint and endpoint.endswith("/relaunch/"):
+            wf_job_id = int(endpoint.split("/")[-3])
+            return self._relaunch_workflow_job(wf_job_id, data or {})
+
         # Handle job relaunch
         if "/jobs/" in endpoint and endpoint.endswith("/relaunch/"):
             # Extract job ID from endpoint: /api/v2/jobs/{id}/relaunch/
             job_id = int(endpoint.split("/")[-3])
             return self._relaunch_job(job_id, data or {})
+
+        # Handle workflow approval approve/deny
+        if "/workflow_approvals/" in endpoint and (endpoint.endswith("/approve/") or endpoint.endswith("/deny/")):
+            approval_id = int(endpoint.split("/")[-3])
+            action = "approved" if endpoint.endswith("/approve/") else "denied"
+            return {"id": approval_id, "status": action, "detail": f"Workflow approval #{approval_id} {action}"}
 
         # Handle job cancellation
         if endpoint.endswith("/cancel/"):
@@ -1605,6 +1621,49 @@ class MockAWXClient:
             return self._cancel_job(job_id)
 
         return {"detail": "Mock POST not implemented"}
+
+    def _launch_workflow_template(self, template_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock launching a workflow job template"""
+        wf_templates = self._get_workflow_templates().get("results", [])
+        template = next((t for t in wf_templates if t.get("id") == template_id), None)
+        name = template["name"] if template else f"Workflow Template #{template_id}"
+        new_id = random.randint(6000, 6999)  # NOSONAR
+        now = datetime.now()
+        new_job = {
+            "id": new_id,
+            "type": "workflow_job",
+            "name": name,
+            "status": "running",
+            "launch_type": "manual",
+            "started": now.isoformat() + "Z",
+            "finished": None,
+            "elapsed": 0.0,
+            "summary_fields": {
+                "created_by": {"id": 1, "username": "admin"},
+                "workflow_job_template": {"id": template_id, "name": name},
+            },
+        }
+        self.mock_data.setdefault("running_jobs", []).insert(0, new_job)
+        return new_job
+
+    def _relaunch_workflow_job(self, wf_job_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock relaunching a workflow job"""
+        orig = self._get_workflow_job_detail(wf_job_id)
+        new_id = random.randint(7000, 7999)  # NOSONAR
+        now = datetime.now()
+        new_job = {
+            "id": new_id,
+            "type": "workflow_job",
+            "name": orig.get("name", f"Workflow #{wf_job_id}"),
+            "status": "running",
+            "launch_type": "relaunch",
+            "started": now.isoformat() + "Z",
+            "finished": None,
+            "elapsed": 0.0,
+            "summary_fields": orig.get("summary_fields", {}),
+        }
+        self.mock_data.setdefault("running_jobs", []).insert(0, new_job)
+        return new_job
 
     async def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Mock PUT request"""

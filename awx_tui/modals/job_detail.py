@@ -444,7 +444,7 @@ class JobDetailModal(ModalScreen):
             table.cursor_coordinate = (target_row, 0)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Drill down into a child job when Enter is pressed on a workflow node"""
+        """Drill down into a child job or handle approval when Enter is pressed on a workflow node"""
         if event.data_table.id != "workflow-nodes-table":
             return
 
@@ -463,7 +463,44 @@ class JobDetailModal(ModalScreen):
             return
 
         child_job_type = entry.get("node_type", "job")
+        if child_job_type == "workflow_approval" and entry.get("status") == "waiting_approval":
+            self.run_worker(self._handle_workflow_approval(entry))
+            return
+
         self.app.push_screen(JobDetailModal(job_id=child_job_id, job_type=child_job_type))
+
+    async def _handle_workflow_approval(self, entry: dict) -> None:
+        """Show approval modal and POST approve/deny for a pending workflow approval node"""
+        from awx_tui.modals.confirm_approval import ConfirmApprovalModal
+
+        decision = await self.app.push_screen_wait(ConfirmApprovalModal(entry))
+        if decision not in ("approve", "deny"):
+            return
+
+        approval_id = entry.get("job_id")
+        node_name = entry.get("name", "Approval")
+        endpoint = f"/api/v2/workflow_approvals/{approval_id}/{decision}/"
+
+        try:
+            instance_manager = self.app.instance_manager
+            client = instance_manager.get_current_client()
+
+            from awx_tui.client import AWXClient
+
+            if isinstance(client, AWXClient):
+                async with client:
+                    await client.post(endpoint, data={})
+            else:
+                await client.post(endpoint, data={})
+
+            past_tense = "approved" if decision == "approve" else "denied"
+            self.notify(f"[green]✓[/green] Approval '{node_name}' (#{approval_id}) {past_tense}", timeout=4)
+            await self._load_job_data(incremental=False)
+        except Exception as e:
+            import traceback
+
+            self.app.log.error(f"Failed to {decision} workflow approval #{approval_id}: {e}\n{traceback.format_exc()}")
+            self.notify(f"[red]✗[/red] Failed to {decision} approval: {e}", severity="error", timeout=5)
 
     def _update_events_table(self, events: list, append=False) -> None:
         """Update job events table"""

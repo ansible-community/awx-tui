@@ -644,36 +644,50 @@ class TemplatesScreen(Screen):
             template_type = template.get("type", "")
             template_name = template.get("name", "Unknown")
 
-            # Only job templates can be launched
-            if template_type != "job_template":
+            # Only job templates and workflow templates can be launched
+            if template_type not in ("job_template", "workflow_job_template"):
                 type_names = {
-                    "workflow_job_template": "workflow template",
                     "project": "project",
                     "system_job_template": "system job",
                     "inventory_source": "inventory source",
                 }
                 type_display = type_names.get(template_type, template_type)
                 self.notify(
-                    f"Cannot launch {type_display} - only job templates can be launched", severity="warning", timeout=5
+                    f"Cannot launch {type_display} - only job and workflow templates can be launched",
+                    severity="warning",
+                    timeout=5,
                 )
                 return
 
             # Check for prompt-on-launch fields
-            prompt_fields = [
-                "ask_variables_on_launch",
-                "ask_inventory_on_launch",
-                "ask_credential_on_launch",
-                "ask_limit_on_launch",
-                "ask_tags_on_launch",
-                "ask_skip_tags_on_launch",
-                "ask_job_type_on_launch",
-                "ask_execution_environment_on_launch",
-                "ask_labels_on_launch",
-                "ask_scm_branch_on_launch",
-                "ask_diff_mode_on_launch",
-                "ask_verbosity_on_launch",
-                "ask_forks_on_launch",
-            ]
+            if template_type == "workflow_job_template":
+                prompt_fields = [
+                    "ask_variables_on_launch",
+                    "ask_inventory_on_launch",
+                    "ask_limit_on_launch",
+                    "ask_scm_branch_on_launch",
+                    "ask_labels_on_launch",
+                    "ask_skip_tags_on_launch",
+                    "ask_tags_on_launch",
+                    "survey_enabled",
+                ]
+            else:
+                prompt_fields = [
+                    "ask_variables_on_launch",
+                    "ask_inventory_on_launch",
+                    "ask_credential_on_launch",
+                    "ask_limit_on_launch",
+                    "ask_tags_on_launch",
+                    "ask_skip_tags_on_launch",
+                    "ask_job_type_on_launch",
+                    "ask_execution_environment_on_launch",
+                    "ask_labels_on_launch",
+                    "ask_scm_branch_on_launch",
+                    "ask_diff_mode_on_launch",
+                    "ask_verbosity_on_launch",
+                    "ask_forks_on_launch",
+                    "survey_enabled",
+                ]
 
             has_prompts = any(template.get(field, False) for field in prompt_fields)
 
@@ -703,9 +717,20 @@ class TemplatesScreen(Screen):
             self.notify("Launch cancelled", timeout=2)
             return
 
-        # Launch the job
+        # Launch the job or workflow
         template_name = template.get("name", "Unknown")
-        self.notify(f"Launching job template '{template_name}'...", timeout=3)
+        template_type = template.get("type", "job_template")
+        is_workflow = template_type == "workflow_job_template"
+        template_id = template.get("id")
+        launch_endpoint = (
+            f"/api/v2/workflow_job_templates/{template_id}/launch/"
+            if is_workflow
+            else f"/api/v2/job_templates/{template_id}/launch/"
+        )
+        launch_label = "workflow template" if is_workflow else "job template"
+        result_label = "Workflow Job" if is_workflow else "Job"
+
+        self.notify(f"Launching {launch_label} '{template_name}'...", timeout=3)
 
         try:
             instance_manager = self.app.instance_manager
@@ -715,29 +740,21 @@ class TemplatesScreen(Screen):
 
             if isinstance(client, AWXClient):
                 async with client:
-                    # POST to job template launch endpoint
-                    template_id = template.get("id")
-                    response = await client.post(f"/api/v2/job_templates/{template_id}/launch/", data={})
-
-                    job_id = response.get("id")
-                    job_name = response.get("name", "Unknown")
-
-                    self.notify(f"[green]✓[/green] Job #{job_id} '{job_name}' launched successfully!", timeout=5)
+                    response = await client.post(launch_endpoint, data={})
             else:
                 # Mock client
-                template_id = template.get("id")
-                response = await client.post(f"/api/v2/job_templates/{template_id}/launch/", data={})
+                response = await client.post(launch_endpoint, data={})
 
-                job_id = response.get("id")
-                job_name = response.get("name", "Unknown")
+            job_id = response.get("id")
+            job_name = response.get("name", "Unknown")
 
-                self.notify(f"[green]✓[/green] Job #{job_id} '{job_name}' launched successfully!", timeout=5)
+            self.notify(f"[green]✓[/green] {result_label} #{job_id} '{job_name}' launched successfully!", timeout=5)
 
         except Exception as e:
             import traceback
 
-            self.app.log.error(f"Failed to launch job: {e}\n{traceback.format_exc()}")
-            self.notify(f"[red]✗[/red] Failed to launch job: {e}", severity="error", timeout=5)
+            self.app.log.error(f"Failed to launch {launch_label}: {e}\n{traceback.format_exc()}")
+            self.notify(f"[red]✗[/red] Failed to launch {launch_label}: {e}", severity="error", timeout=5)
 
     # Navigation actions
     def action_back_to_dashboard(self) -> None:
