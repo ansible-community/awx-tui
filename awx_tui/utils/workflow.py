@@ -226,3 +226,25 @@ def format_workflow_progress_bar(summary: Dict[str, int], width: int = 16) -> st
         parts.append(f"{summary['skipped']} skipped")
 
     return f"{bar} {percent}% ({' | '.join(parts)})"
+
+
+def format_node_transitions(entry: Dict[str, Any], id_to_step: Dict[int, int]) -> str:
+    """
+    Format outgoing transitions of a workflow node using step numbers.
+
+    Returns a compact string like '✓→#2, ✗→#4' or '—' for terminal nodes.
+    """
+    raw_node = entry.get("node") or {}
+    parts: List[str] = []
+
+    for key, symbol in (
+        ("success_nodes", "[green]✓[/green]"),
+        ("failure_nodes", "[red]✗[/red]"),
+        ("always_nodes", "[cyan]*[/cyan]"),
+    ):
+        targets = raw_node.get(key) or []
+        if targets:
+            step_refs = [f"#{id_to_step.get(tid, tid)}" for tid in targets]
+            parts.append(f"{symbol}→{','.join(step_refs)}")
+
+    return "  ".join(parts) if parts else "[dim]—[/dim]"

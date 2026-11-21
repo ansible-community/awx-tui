@@ -13,6 +13,7 @@ from awx_tui.utils.launch_prompts import (
     parse_survey_choices,
 )
 from awx_tui.utils.workflow import (
+    format_node_transitions,
     format_workflow_progress_bar,
     order_workflow_nodes,
     summarize_workflow_progress,
@@ -22,6 +23,7 @@ __all__ = [
     "JOB_PROMPT_FIELDS",
     "WORKFLOW_PROMPT_FIELDS",
     "build_launch_payload",
+    "format_node_transitions",
     "format_playbook_path",
     "format_time_ago",
     "format_workflow_progress_bar",

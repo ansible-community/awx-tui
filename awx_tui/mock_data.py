@@ -651,6 +651,10 @@ class MockAWXClient:
             template_id = int(endpoint.split("/")[-3])
             return self._get_template_survey_spec(template_id)
 
+        elif endpoint.startswith("/api/v2/workflow_job_templates/") and endpoint.endswith("/workflow_nodes/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._get_workflow_template_nodes(template_id)
+
         elif endpoint == "/api/v2/workflow_job_templates/":
             return self._get_workflow_templates()
 
@@ -1242,6 +1246,118 @@ class MockAWXClient:
                 },
             ],
         }
+
+    def _get_workflow_template_nodes(self, template_id: int) -> Dict[str, Any]:
+        """Get mock static workflow_nodes for a Workflow Job Template"""
+        if template_id == 102:
+            # Disaster Recovery workflow (with approval gate + branching)
+            nodes = [
+                {
+                    "id": 201,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [202],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 1, "name": "Verify Backups", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 202,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [203],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 2, "name": "DR Failover Approval", "unified_job_type": "workflow_approval"},
+                    },
+                },
+                {
+                    "id": 203,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [204],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 3, "name": "Promote Standby DB", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 204,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [205],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 4, "name": "Switch DNS Traffic", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 205,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 5, "name": "Notify Incident Channel", "unified_job_type": "job"},
+                    },
+                },
+            ]
+        else:
+            # Default deployment workflow structure
+            nodes = [
+                {
+                    "id": 301,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [302],
+                    "failure_nodes": [304],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 1, "name": "Pre-flight Checks", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 302,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [303],
+                    "failure_nodes": [304],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 303,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [304],
+                    "always_nodes": [305],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 3, "name": "Smoke Tests", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 304,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [305],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 4, "name": "Rollback Release", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 305,
+                    "all_parents_must_converge": True,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 5, "name": "Send Notification", "unified_job_type": "job"},
+                    },
+                },
+            ]
+        return {"count": len(nodes), "next": None, "previous": None, "results": nodes}
 
     def _get_projects(self) -> Dict[str, Any]:
         """Get projects"""

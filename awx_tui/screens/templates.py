@@ -884,9 +884,20 @@ class TemplatesScreen(Screen):
                 from awx_tui.screens.update_job_template import UpdateJobTemplateScreen
 
                 self.app.push_screen(UpdateJobTemplateScreen(template_id))
+            elif template_type == "workflow_job_template":
+                # Open read-only workflow structure preview modal
+                self.run_worker(self._show_workflow_structure(template))
             else:
                 # Show warning for unsupported template types
                 self.notify(f"Template updates for '{template_type}' not implemented", severity="warning", timeout=3)
 
         except (ValueError, IndexError) as e:
             self.app.log.error(f"Failed to select template: {e}")
+
+    async def _show_workflow_structure(self, template: dict) -> None:
+        """Show workflow template structure preview modal; launch if requested"""
+        from awx_tui.modals.workflow_structure import WorkflowStructureModal
+
+        result = await self.app.push_screen_wait(WorkflowStructureModal(template))
+        if result == "launch":
+            await self._show_launch_confirmation(template)

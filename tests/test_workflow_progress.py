@@ -230,3 +230,44 @@ def test_workflow_modal_formatting():
     assert "Approval ID: #77" in approval_info
     assert "Approve prod rollout" in approval_info
 
+
+def test_workflow_structure_preview_and_transitions():
+    from awx_tui.modals.workflow_structure import WorkflowStructureModal
+    from awx_tui.utils.workflow import format_node_transitions
+
+    client = MockAWXClient(instance_name="mock-dev")
+    nodes_resp = asyncio.run(client.get("/api/v2/workflow_job_templates/102/workflow_nodes/"))
+    assert nodes_resp["count"] == 5
+
+    ordered = order_workflow_nodes(nodes_resp["results"])
+    assert [n["name"] for n in ordered] == [
+        "Verify Backups",
+        "DR Failover Approval",
+        "Notify Incident Channel",
+        "Promote Standby DB",
+        "Switch DNS Traffic",
+    ]
+    id_to_step = {e["node_id"]: e["step"] for e in ordered}
+    first_transitions = format_node_transitions(ordered[0], id_to_step)
+    assert "#2" in first_transitions
+    assert "#3" in first_transitions
+    terminal_transitions = format_node_transitions(ordered[2], id_to_step)
+    assert "—" in terminal_transitions
+
+    modal = WorkflowStructureModal(
+        {
+            "id": 102,
+            "type": "workflow_job_template",
+            "name": "Disaster Recovery",
+            "description": "DR failover pipeline",
+            "ask_inventory_on_launch": True,
+            "survey_enabled": True,
+            "summary_fields": {"organization": {"name": "Operations"}},
+        }
+    )
+    header = modal._format_header(node_count=5)
+    assert "Disaster Recovery" in header
+    assert "Nodes: 5" in header
+    assert "inventory" in header
+    assert "survey" in header
+
