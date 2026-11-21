@@ -149,3 +149,12 @@ def test_select_workflow_modal_instantiation():
     modal = SelectWorkflowModal(host_name="web-01.prod", inventory_name="Production", workflows=workflows)
     assert modal.host_name == "web-01.prod"
     assert len(modal._filtered_workflows) == 2
+
+    client = MockAWXClient(instance_name="mock-dev")
+    inv_detail = asyncio.run(client.get("/api/v2/inventories/1/"))
+    assert inv_detail["id"] == 1
+    assert inv_detail["name"] == "Production Servers"
+
+    inv_hosts = asyncio.run(client.get("/api/v2/inventories/1/hosts/"))
+    assert inv_hosts["count"] > 0
+    assert inv_hosts["results"][0]["inventory"] == 1

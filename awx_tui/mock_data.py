@@ -675,6 +675,14 @@ class MockAWXClient:
         elif endpoint == "/api/v2/inventories/":
             return self._get_inventories()
 
+        elif endpoint.startswith("/api/v2/inventories/") and endpoint.endswith("/hosts/"):
+            inventory_id = int(endpoint.split("/")[-3])
+            return self._get_inventory_hosts(inventory_id)
+
+        elif endpoint.startswith("/api/v2/inventories/") and endpoint.endswith("/"):
+            inventory_id = int(endpoint.split("/")[-2])
+            return self._get_inventory_detail(inventory_id)
+
         elif endpoint == "/api/v2/hosts/":
             return self._get_hosts()
 
@@ -1512,6 +1520,39 @@ class MockAWXClient:
             {"id": 6, "name": "Development", "description": "Dev environment hosts", "total_hosts": 15},
         ]
         return {"count": len(inventories), "next": None, "previous": None, "results": inventories}
+
+    def _get_inventory_detail(self, inventory_id: int) -> Dict[str, Any]:
+        """Get mock inventory detail"""
+        inventories = self._get_inventories().get("results", [])
+        inv = next((i for i in inventories if i["id"] == inventory_id), None)
+        if not inv:
+            inv = {"id": inventory_id, "name": f"Inventory #{inventory_id}", "description": "", "total_hosts": 5}
+        return {
+            **inv,
+            "organization": 1,
+            "variables": "---\nansible_user: automation\n",
+            "summary_fields": {
+                "organization": {"id": 1, "name": "Engineering"},
+            },
+        }
+
+    def _get_inventory_hosts(self, inventory_id: int) -> Dict[str, Any]:
+        """Get mock hosts belonging to a specific inventory"""
+        inv = self._get_inventory_detail(inventory_id)
+        prefix = inv["name"].lower().split()[0]
+        count = min(inv.get("total_hosts", 5), 10)
+        hosts = [
+            {
+                "id": inventory_id * 100 + i,
+                "name": f"{prefix}-{i:02d}.example.com",
+                "description": f"{inv['name']} host #{i}",
+                "inventory": inventory_id,
+                "enabled": i != count,
+                "variables": "",
+            }
+            for i in range(1, count + 1)
+        ]
+        return {"count": len(hosts), "next": None, "previous": None, "results": hosts}
 
     def _get_hosts(self) -> Dict[str, Any]:
         """Get hosts"""
