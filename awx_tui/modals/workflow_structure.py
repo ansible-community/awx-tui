@@ -75,7 +75,7 @@ class WorkflowStructureModal(ModalScreen[Optional[str]]):
         super().__init__(**kwargs)
         self.template_data = template_data
         self.template_id = template_data.get("id")
-        self._nodes = []
+        self._workflow_nodes = []
         self._loading = False
 
     def compose(self) -> ComposeResult:
@@ -144,7 +144,7 @@ class WorkflowStructureModal(ModalScreen[Optional[str]]):
                 raw_nodes = await _fetch(client)
 
             ordered = order_workflow_nodes(raw_nodes)
-            self._nodes = ordered
+            self._workflow_nodes = ordered
 
             header = self.query_one("#wf-structure-header", Static)
             header.update(self._format_header(node_count=len(ordered)))

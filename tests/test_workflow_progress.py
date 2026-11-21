@@ -270,6 +270,10 @@ def test_workflow_structure_preview_and_transitions():
     assert "Nodes: 5" in header
     assert "inventory" in header
     assert "survey" in header
+    # Ensure Textual's internal DOMNode._nodes (NodeList) was not overwritten
+    from textual._node_list import NodeList
+
+    assert isinstance(modal._nodes, NodeList)
 
 
 def test_pending_approvals_quick_view_and_mock_lifecycle():
