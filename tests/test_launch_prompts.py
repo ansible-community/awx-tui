@@ -126,3 +126,26 @@ def test_mock_client_launch_info_and_survey_spec():
     )
     assert modal._flag("survey_enabled") is True
     assert modal._flag("ask_inventory_on_launch") is True
+
+
+def test_select_workflow_modal_instantiation():
+    from awx_tui.modals.select_workflow import SelectWorkflowModal
+
+    workflows = [
+        {
+            "id": 101,
+            "type": "workflow_job_template",
+            "name": "Full Deployment Workflow",
+            "ask_limit_on_launch": False,
+        },
+        {
+            "id": 102,
+            "type": "workflow_job_template",
+            "name": "Disaster Recovery",
+            "ask_limit_on_launch": True,
+            "survey_enabled": True,
+        },
+    ]
+    modal = SelectWorkflowModal(host_name="web-01.prod", inventory_name="Production", workflows=workflows)
+    assert modal.host_name == "web-01.prod"
+    assert len(modal._filtered_workflows) == 2

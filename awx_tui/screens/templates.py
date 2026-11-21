@@ -642,7 +642,6 @@ class TemplatesScreen(Screen):
 
             # Check if template is launchable
             template_type = template.get("type", "")
-            template_name = template.get("name", "Unknown")
 
             # Only job templates and workflow templates can be launched
             if template_type not in ("job_template", "workflow_job_template"):
@@ -678,9 +677,7 @@ class TemplatesScreen(Screen):
         is_workflow = template_type == "workflow_job_template"
         template_id = template.get("id")
         endpoint_base = (
-            f"/api/v2/workflow_job_templates/{template_id}"
-            if is_workflow
-            else f"/api/v2/job_templates/{template_id}"
+            f"/api/v2/workflow_job_templates/{template_id}" if is_workflow else f"/api/v2/job_templates/{template_id}"
         )
         launch_endpoint = f"{endpoint_base}/launch/"
         launch_label = "workflow template" if is_workflow else "job template"

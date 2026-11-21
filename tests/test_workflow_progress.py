@@ -270,4 +270,3 @@ def test_workflow_structure_preview_and_transitions():
     assert "Nodes: 5" in header
     assert "inventory" in header
     assert "survey" in header
-

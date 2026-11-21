@@ -103,7 +103,9 @@ class WorkflowStructureModal(ModalScreen[Optional[str]]):
 
         active_prompts = get_active_prompt_fields(self.template_data)
         if active_prompts:
-            short_prompts = [p.replace("ask_", "").replace("_on_launch", "").replace("_enabled", "") for p in active_prompts]
+            short_prompts = [
+                p.replace("ask_", "").replace("_on_launch", "").replace("_enabled", "") for p in active_prompts
+            ]
             prompts_str = ", ".join(short_prompts)
         else:
             prompts_str = "None"

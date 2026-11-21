@@ -642,12 +642,16 @@ class MockAWXClient:
         elif endpoint == "/api/v2/job_templates/":
             return self._get_job_templates()
 
-        elif (endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")) and endpoint.endswith("/launch/"):
+        elif (
+            endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")
+        ) and endpoint.endswith("/launch/"):
             template_id = int(endpoint.split("/")[-3])
             is_workflow = endpoint.startswith("/api/v2/workflow_job_templates/")
             return self._get_template_launch_info(template_id, is_workflow=is_workflow)
 
-        elif (endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")) and endpoint.endswith("/survey_spec/"):
+        elif (
+            endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")
+        ) and endpoint.endswith("/survey_spec/"):
             template_id = int(endpoint.split("/")[-3])
             return self._get_template_survey_spec(template_id)
 
@@ -771,7 +775,13 @@ class MockAWXClient:
                 "always_nodes": [],
                 "summary_fields": {
                     "unified_job_template": {"id": 1, "name": "Pre-flight Checks", "unified_job_type": "job"},
-                    "job": {"id": base_job_id + 1, "name": "Pre-flight Checks", "type": "job", "status": "successful", "elapsed": 24.5},
+                    "job": {
+                        "id": base_job_id + 1,
+                        "name": "Pre-flight Checks",
+                        "type": "job",
+                        "status": "successful",
+                        "elapsed": 24.5,
+                    },
                 },
             },
             {
@@ -783,7 +793,13 @@ class MockAWXClient:
                 "always_nodes": [],
                 "summary_fields": {
                     "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
-                    "job": {"id": base_job_id + 2, "name": "Deploy Application", "type": "job", "status": deploy_status, "elapsed": 62.1},
+                    "job": {
+                        "id": base_job_id + 2,
+                        "name": "Deploy Application",
+                        "type": "job",
+                        "status": deploy_status,
+                        "elapsed": 62.1,
+                    },
                 },
             },
             {
@@ -1269,7 +1285,11 @@ class MockAWXClient:
                     "failure_nodes": [205],
                     "always_nodes": [],
                     "summary_fields": {
-                        "unified_job_template": {"id": 2, "name": "DR Failover Approval", "unified_job_type": "workflow_approval"},
+                        "unified_job_template": {
+                            "id": 2,
+                            "name": "DR Failover Approval",
+                            "unified_job_type": "workflow_approval",
+                        },
                     },
                 },
                 {

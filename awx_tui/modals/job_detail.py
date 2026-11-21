@@ -122,7 +122,9 @@ class JobInfoHeader(Static):
         # Build compact 3-line header
         if job_type == "workflow_job":
             wf_template = summary.get("workflow_job_template", {}).get("name", template)
-            progress_line = f"📊 Progress: {workflow_progress}" if workflow_progress else "📊 Progress: Loading nodes..."
+            progress_line = (
+                f"📊 Progress: {workflow_progress}" if workflow_progress else "📊 Progress: Loading nodes..."
+            )
             info_text = f"""Workflow Job #{job_id} {type_emoji} {name[:60]} | {status_text} | Launched via: {launch_emoji} {launch_type.title()}
 👤 {user} | 🎯 {wf_template[:35]} | ⏱ {started_str} → 🏁 {finished_str} | ⌛ {duration_str}
 {progress_line}"""
@@ -226,7 +228,9 @@ class JobDetailModal(ModalScreen):
                 if self.job_type == "workflow_job":
                     with TabPane("Workflow Nodes (Enter to inspect)", id="tab-workflow-nodes"):
                         nodes_table = DataTable(id="workflow-nodes-table", cursor_type="row")
-                        nodes_table.add_columns("Step", "Node / Template", "Branch", "Type", "Status", "Job #", "Elapsed")
+                        nodes_table.add_columns(
+                            "Step", "Node / Template", "Branch", "Type", "Status", "Job #", "Elapsed"
+                        )
                         yield nodes_table
                 else:
                     with TabPane("STDOUT", id="tab-stdout"):
@@ -362,7 +366,9 @@ class JobDetailModal(ModalScreen):
             stdout_log.clear()
             stdout_log.write(f"[STDOUT not available for {self.job_type}]")
 
-    async def _fetch_and_display_workflow_nodes(self, client, endpoint_base: str, job_info_header: JobInfoHeader) -> None:
+    async def _fetch_and_display_workflow_nodes(
+        self, client, endpoint_base: str, job_info_header: JobInfoHeader
+    ) -> None:
         """Fetch workflow nodes, compute progress, and update workflow nodes table"""
         nodes_endpoint = f"{endpoint_base}/{self.job_id}/workflow_nodes/"
         try:

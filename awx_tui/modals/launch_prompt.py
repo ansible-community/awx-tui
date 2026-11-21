@@ -165,7 +165,9 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
 
                 if self._flag("ask_inventory_on_launch"):
                     yield Label("Inventory", classes="field-label")
-                    inv_options = [(f"{inv.get('name', 'Unknown')} (#{inv.get('id')})", inv.get("id")) for inv in self.inventories]
+                    inv_options = [
+                        (f"{inv.get('name', 'Unknown')} (#{inv.get('id')})", inv.get("id")) for inv in self.inventories
+                    ]
                     default_inv = self._default("inventory", None)
                     if isinstance(default_inv, dict):
                         default_inv = default_inv.get("id")
@@ -286,7 +288,11 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
                         if q_type == "multiplechoice":
                             choices = parse_survey_choices(question.get("choices"))
                             options = [(c, c) for c in choices]
-                            initial = str(default_val) if default_val is not None and str(default_val) in choices else Select.BLANK
+                            initial = (
+                                str(default_val)
+                                if default_val is not None and str(default_val) in choices
+                                else Select.BLANK
+                            )
                             yield Select(
                                 options,
                                 prompt="Select an option...",

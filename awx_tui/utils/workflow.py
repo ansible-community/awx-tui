@@ -5,8 +5,7 @@ Helpers for ordering workflow job nodes and summarizing workflow progress.
 """
 
 from collections import deque
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any, Dict, List, Tuple
 
 # Statuses considered terminal/finished for progress calculation
 _COMPLETED_STATUSES = {"successful"}
