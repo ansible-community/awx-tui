@@ -642,6 +642,15 @@ class MockAWXClient:
         elif endpoint == "/api/v2/job_templates/":
             return self._get_job_templates()
 
+        elif (endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")) and endpoint.endswith("/launch/"):
+            template_id = int(endpoint.split("/")[-3])
+            is_workflow = endpoint.startswith("/api/v2/workflow_job_templates/")
+            return self._get_template_launch_info(template_id, is_workflow=is_workflow)
+
+        elif (endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")) and endpoint.endswith("/survey_spec/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._get_template_survey_spec(template_id)
+
         elif endpoint == "/api/v2/workflow_job_templates/":
             return self._get_workflow_templates()
 
@@ -1133,7 +1142,8 @@ class MockAWXClient:
                 "modified": (datetime.now() - timedelta(days=10)).isoformat() + "Z",
                 "ask_variables_on_launch": True,
                 "ask_inventory_on_launch": True,
-                "ask_limit_on_launch": False,
+                "ask_limit_on_launch": True,
+                "survey_enabled": True,
                 "summary_fields": {
                     "organization": {"id": 2, "name": "Operations"},
                 },
@@ -1156,6 +1166,82 @@ class MockAWXClient:
         ]
 
         return {"count": len(workflow_templates), "next": None, "previous": None, "results": workflow_templates}
+
+    def _get_template_launch_info(self, template_id: int, is_workflow: bool = False) -> Dict[str, Any]:
+        """Get mock GET /launch/ metadata for a job or workflow template"""
+        templates = (
+            self._get_workflow_templates().get("results", [])
+            if is_workflow
+            else self._get_job_templates().get("results", [])
+        )
+        template = next((t for t in templates if t.get("id") == template_id), {})
+        return {
+            "can_start_without_user_input": not any(
+                template.get(k, False)
+                for k in (
+                    "ask_variables_on_launch",
+                    "ask_inventory_on_launch",
+                    "ask_limit_on_launch",
+                    "survey_enabled",
+                )
+            ),
+            "ask_variables_on_launch": template.get("ask_variables_on_launch", False),
+            "ask_inventory_on_launch": template.get("ask_inventory_on_launch", False),
+            "ask_limit_on_launch": template.get("ask_limit_on_launch", False),
+            "ask_scm_branch_on_launch": template.get("ask_scm_branch_on_launch", False),
+            "ask_tags_on_launch": template.get("ask_tags_on_launch", False),
+            "ask_skip_tags_on_launch": template.get("ask_skip_tags_on_launch", False),
+            "ask_job_type_on_launch": template.get("ask_job_type_on_launch", False),
+            "ask_verbosity_on_launch": template.get("ask_verbosity_on_launch", False),
+            "ask_diff_mode_on_launch": template.get("ask_diff_mode_on_launch", False),
+            "ask_forks_on_launch": template.get("ask_forks_on_launch", False),
+            "survey_enabled": template.get("survey_enabled", False),
+            "defaults": {
+                "inventory": {"id": 1, "name": "Production"},
+                "limit": "",
+                "extra_vars": "maintenance_window: true\n",
+                "job_type": "run",
+                "verbosity": 0,
+                "diff_mode": False,
+                "forks": 5,
+            },
+        }
+
+    def _get_template_survey_spec(self, template_id: int) -> Dict[str, Any]:
+        """Get mock survey specification for templates with survey_enabled"""
+        return {
+            "name": "Deployment Survey",
+            "description": "Provide target parameters before launching this workflow.",
+            "spec": [
+                {
+                    "question_name": "Target Environment",
+                    "question_description": "Environment to target for execution",
+                    "required": True,
+                    "type": "multiplechoice",
+                    "variable": "target_env",
+                    "default": "staging",
+                    "choices": "dev\nstaging\nproduction",
+                },
+                {
+                    "question_name": "Change Ticket ID",
+                    "question_description": "ITSM change reference (e.g. CHG001234)",
+                    "required": True,
+                    "type": "text",
+                    "variable": "change_ticket",
+                    "default": "CHG000100",
+                },
+                {
+                    "question_name": "Retry Count",
+                    "question_description": "Max retries on transient failure (0-5)",
+                    "required": False,
+                    "type": "integer",
+                    "variable": "retry_count",
+                    "default": 2,
+                    "min": 0,
+                    "max": 5,
+                },
+            ],
+        }
 
     def _get_projects(self) -> Dict[str, Any]:
         """Get projects"""
