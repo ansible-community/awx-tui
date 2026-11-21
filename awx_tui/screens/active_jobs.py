@@ -168,6 +168,7 @@ class ActiveJobsScreen(Screen):
         ("5", "goto_templates", "Templates"),
         ("6", "goto_inventories", "Inventories"),
         ("m", "load_more", "Load More"),
+        ("a", "show_pending_approvals", "Approvals"),
         ("ctrl+k", "cancel_job", "Cancel"),
         ("ctrl+f", "focus_filter", "Filter"),
         ("ctrl+d", "debug_console", "Debug"),
@@ -184,6 +185,7 @@ class ActiveJobsScreen(Screen):
         self._current_offset = 0  # Track pagination offset for load-more
         self._current_refresh_interval = 3  # Track current refresh interval for dynamic adjustment
         self._table_last_updated = None  # Track when jobs table was last refreshed
+        self._pending_approvals_count = 0  # Count of pending workflow approvals
 
     def compose(self) -> ComposeResult:
         """Create active jobs layout"""
@@ -332,6 +334,17 @@ class ActiveJobsScreen(Screen):
         except Exception as e:
             # Log but don't fail - capacity metrics are nice-to-have
             self.app.log.warning(f"Failed to fetch instances for capacity: {e}")
+
+        # Try to fetch pending workflow approvals count (optional)
+        try:
+            approvals_resp = await client.get(
+                "/api/v2/workflow_approvals/",
+                params={"status": "pending", "page_size": 1},
+            )
+            self._pending_approvals_count = int(approvals_resp.get("count", 0))
+        except Exception as e:
+            self.app.log.debug(f"Could not fetch pending workflow approvals count: {e}")
+            self._pending_approvals_count = 0
 
         # Update TopPanel with current metrics
         try:
@@ -525,6 +538,10 @@ class ActiveJobsScreen(Screen):
 
         if self._table_last_updated:
             header_text += f" - Last Updated: {self._table_last_updated.strftime('%H:%M:%S')}"
+
+        if self._pending_approvals_count > 0:
+            plural = "s" if self._pending_approvals_count != 1 else ""
+            header_text += f"  |  [bold magenta]✋ {self._pending_approvals_count} Pending Approval{plural} (press 'a')[/bold magenta]"
 
         self.query_one("#jobs-header").update(header_text)
 
@@ -779,6 +796,18 @@ class ActiveJobsScreen(Screen):
     def action_debug_console(self) -> None:
         """Open debug console"""
         self.app.action_toggle_debug()
+
+    def action_show_pending_approvals(self) -> None:
+        """Open Pending Workflow Approvals quick-view modal (key: a)"""
+        self.run_worker(self._open_pending_approvals())
+
+    async def _open_pending_approvals(self) -> None:
+        """Show PendingApprovalsModal and refresh active jobs if any approval was acted on"""
+        from awx_tui.modals.pending_approvals import PendingApprovalsModal
+
+        modified = await self.app.push_screen_wait(PendingApprovalsModal())
+        if modified:
+            await self._load_data(append=False)
 
     def action_cancel_job(self) -> None:
         """Cancel selected job (Ctrl+K)"""

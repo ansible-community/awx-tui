@@ -270,3 +270,33 @@ def test_workflow_structure_preview_and_transitions():
     assert "Nodes: 5" in header
     assert "inventory" in header
     assert "survey" in header
+
+
+def test_pending_approvals_quick_view_and_mock_lifecycle():
+    """Test pending workflow approvals mock listing, approve/deny state transition, and entry mapping."""
+    from awx_tui.modals.pending_approvals import PendingApprovalsModal, build_approval_node_entry
+
+    client = MockAWXClient(instance_name="mock-staging")
+    client.mock_data.pop("workflow_approvals", None)
+
+    pending = asyncio.run(client.get("/api/v2/workflow_approvals/", params={"status": "pending"}))
+    assert pending["count"] == 2
+    first = pending["results"][0]
+
+    entry = build_approval_node_entry(first)
+    assert entry["job_id"] == first["id"]
+    assert entry["name"] == first["name"]
+    assert "Workflow #" in entry["branch"]
+
+    # Approve first, deny second -> 0 pending left
+    asyncio.run(client.post(f"/api/v2/workflow_approvals/{first['id']}/approve/", data={}))
+    after_one = asyncio.run(client.get("/api/v2/workflow_approvals/", params={"status": "pending"}))
+    assert after_one["count"] == 1
+
+    second = after_one["results"][0]
+    asyncio.run(client.post(f"/api/v2/workflow_approvals/{second['id']}/deny/", data={}))
+    after_two = asyncio.run(client.get("/api/v2/workflow_approvals/", params={"status": "pending"}))
+    assert after_two["count"] == 0
+
+    modal = PendingApprovalsModal()
+    assert modal._modified is False

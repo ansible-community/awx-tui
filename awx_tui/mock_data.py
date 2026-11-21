@@ -662,6 +662,9 @@ class MockAWXClient:
         elif endpoint == "/api/v2/workflow_job_templates/":
             return self._get_workflow_templates()
 
+        elif endpoint == "/api/v2/workflow_approvals/":
+            return self._get_workflow_approvals(params or {})
+
         elif endpoint == "/api/v2/projects/":
             return self._get_projects()
 
@@ -845,6 +848,54 @@ class MockAWXClient:
             },
         ]
         return {"count": len(nodes), "next": None, "previous": None, "results": nodes}
+
+    def _ensure_mock_approvals(self) -> list:
+        """Lazily initialize stateful mock workflow approvals on this mock instance"""
+        if "workflow_approvals" not in self.mock_data:
+            now = datetime.now()
+            self.mock_data["workflow_approvals"] = [
+                {
+                    "id": 901,
+                    "type": "workflow_approval",
+                    "name": "DR Failover Approval",
+                    "description": "Approve promoting standby database and switching production DNS.",
+                    "status": "pending",
+                    "created": (now - timedelta(minutes=8)).isoformat() + "Z",
+                    "approval_expiration": (now + timedelta(minutes=52)).isoformat() + "Z",
+                    "summary_fields": {
+                        "source_workflow_job": {"id": 6001, "name": "Disaster Recovery"},
+                    },
+                },
+                {
+                    "id": 902,
+                    "type": "workflow_approval",
+                    "name": "Production Cutover Gate",
+                    "description": "Confirm smoke tests passed before shifting 100% traffic.",
+                    "status": "pending",
+                    "created": (now - timedelta(minutes=3)).isoformat() + "Z",
+                    "approval_expiration": None,
+                    "summary_fields": {
+                        "source_workflow_job": {"id": 6002, "name": "Full Deployment Workflow"},
+                    },
+                },
+            ]
+        return self.mock_data["workflow_approvals"]
+
+    def _get_workflow_approvals(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get mock workflow approvals with optional status filtering"""
+        approvals = self._ensure_mock_approvals()
+        status_filter = params.get("status")
+        if status_filter:
+            filtered = [a for a in approvals if a.get("status") == status_filter]
+        else:
+            filtered = list(approvals)
+        page_size = int(params.get("page_size", 200))
+        return {
+            "count": len(filtered),
+            "next": None,
+            "previous": None,
+            "results": filtered[:page_size],
+        }
 
     def _get_job_output(self, job_id: int) -> str:
         """Get job output/stdout"""
@@ -1879,6 +1930,11 @@ class MockAWXClient:
         if "/workflow_approvals/" in endpoint and (endpoint.endswith("/approve/") or endpoint.endswith("/deny/")):
             approval_id = int(endpoint.split("/")[-3])
             action = "approved" if endpoint.endswith("/approve/") else "denied"
+            new_status = "successful" if action == "approved" else "failed"
+            for item in self._ensure_mock_approvals():
+                if item.get("id") == approval_id:
+                    item["status"] = new_status
+                    break
             return {"id": approval_id, "status": action, "detail": f"Workflow approval #{approval_id} {action}"}
 
         # Handle job cancellation
