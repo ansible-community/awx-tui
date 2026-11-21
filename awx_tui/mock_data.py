@@ -623,6 +623,16 @@ class MockAWXClient:
             job_id = int(endpoint.split("/")[4])
             return self._get_job_output(job_id)
 
+        elif endpoint.startswith("/api/v2/workflow_jobs/") and endpoint.endswith("/workflow_nodes/"):
+            # Workflow job nodes
+            wf_job_id = int(endpoint.split("/")[4])
+            return self._get_workflow_job_nodes(wf_job_id)
+
+        elif endpoint.startswith("/api/v2/workflow_jobs/") and endpoint.endswith("/"):
+            # Workflow job detail
+            wf_job_id = int(endpoint.split("/")[-2])
+            return self._get_workflow_job_detail(wf_job_id)
+
         elif endpoint == "/api/v2/instances/":
             return self._get_instances()
 
@@ -707,6 +717,93 @@ class MockAWXClient:
 
         # Job not found
         raise ValueError(f"Job {job_id} not found")
+
+    def _get_workflow_job_detail(self, wf_job_id: int) -> Dict[str, Any]:
+        """Get individual workflow job detail"""
+        all_jobs = self.mock_data.get("running_jobs", []) + self.mock_data.get("recent_jobs", [])
+        for job in all_jobs:
+            if job["id"] == wf_job_id:
+                return job
+
+        now = datetime.now()
+        return {
+            "id": wf_job_id,
+            "type": "workflow_job",
+            "name": f"Deploy Pipeline #{wf_job_id}",
+            "status": "running",
+            "launch_type": "manual",
+            "started": (now - timedelta(minutes=3)).isoformat() + "Z",
+            "finished": None,
+            "elapsed": 180.0,
+            "summary_fields": {
+                "created_by": {"id": 1, "username": "admin"},
+                "workflow_job_template": {"id": 10, "name": "Deploy Pipeline"},
+            },
+        }
+
+    def _get_workflow_job_nodes(self, wf_job_id: int) -> Dict[str, Any]:
+        """Get mock workflow job nodes showing in-progress workflow execution"""
+        base_job_id = wf_job_id * 10
+        nodes = [
+            {
+                "id": 101,
+                "job": base_job_id + 1,
+                "do_not_run": False,
+                "success_nodes": [102],
+                "failure_nodes": [104],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 1, "name": "Pre-flight Checks", "unified_job_type": "job"},
+                    "job": {"id": base_job_id + 1, "name": "Pre-flight Checks", "type": "job", "status": "successful", "elapsed": 24.5},
+                },
+            },
+            {
+                "id": 102,
+                "job": base_job_id + 2,
+                "do_not_run": False,
+                "success_nodes": [103],
+                "failure_nodes": [104],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
+                    "job": {"id": base_job_id + 2, "name": "Deploy Application", "type": "job", "status": "running", "elapsed": 62.1},
+                },
+            },
+            {
+                "id": 103,
+                "job": None,
+                "do_not_run": False,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [105],
+                "summary_fields": {
+                    "unified_job_template": {"id": 3, "name": "Smoke Tests", "unified_job_type": "job"},
+                },
+            },
+            {
+                "id": 104,
+                "job": None,
+                "do_not_run": True,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [105],
+                "summary_fields": {
+                    "unified_job_template": {"id": 4, "name": "Rollback Release", "unified_job_type": "job"},
+                },
+            },
+            {
+                "id": 105,
+                "job": None,
+                "do_not_run": False,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 5, "name": "Send Notification", "unified_job_type": "job"},
+                },
+            },
+        ]
+        return {"count": len(nodes), "next": None, "previous": None, "results": nodes}
 
     def _get_job_output(self, job_id: int) -> str:
         """Get job output/stdout"""
