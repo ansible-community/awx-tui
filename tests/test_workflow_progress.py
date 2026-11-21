@@ -171,6 +171,12 @@ def test_mock_client_workflow_actions():
     denied = asyncio.run(client.post("/api/v2/workflow_approvals/43/deny/", data={}))
     assert denied["status"] == "denied"
 
+    # Canceling a workflow job updates its running mock node to canceled
+    asyncio.run(client.post(f"/api/v2/workflow_jobs/{launched['id']}/cancel/", data={}))
+    canceled_nodes = asyncio.run(client.get(f"/api/v2/workflow_jobs/{launched['id']}/workflow_nodes/"))["results"]
+    deploy_node = next(n for n in canceled_nodes if n["id"] == 102)
+    assert deploy_node["summary_fields"]["job"]["status"] == "canceled"
+
 
 def test_workflow_modal_formatting():
     from awx_tui.modals.confirm_approval import ConfirmApprovalModal

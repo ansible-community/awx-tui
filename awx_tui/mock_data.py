@@ -742,7 +742,11 @@ class MockAWXClient:
         }
 
     def _get_workflow_job_nodes(self, wf_job_id: int) -> Dict[str, Any]:
-        """Get mock workflow job nodes showing in-progress workflow execution"""
+        """Get mock workflow job nodes reflecting the parent workflow job status"""
+        wf_job = self._get_workflow_job_detail(wf_job_id)
+        wf_status = wf_job.get("status", "running")
+        deploy_status = "canceled" if wf_status == "canceled" else ("failed" if wf_status == "failed" else "running")
+
         base_job_id = wf_job_id * 10
         nodes = [
             {
@@ -766,7 +770,7 @@ class MockAWXClient:
                 "always_nodes": [],
                 "summary_fields": {
                     "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
-                    "job": {"id": base_job_id + 2, "name": "Deploy Application", "type": "job", "status": "running", "elapsed": 62.1},
+                    "job": {"id": base_job_id + 2, "name": "Deploy Application", "type": "job", "status": deploy_status, "elapsed": 62.1},
                 },
             },
             {
