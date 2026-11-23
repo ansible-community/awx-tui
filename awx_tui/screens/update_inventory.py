@@ -155,6 +155,7 @@ class UpdateInventoryScreen(Screen):
         Binding("escape", "close", "Close", show=True, priority=True),
         Binding("i", "show_info", "Info", show=True),
         Binding("ctrl+x", "toggle_enabled", "Toggle Enabled", show=True),
+        Binding("ctrl+l", "launch_workflow_for_host", "Launch Workflow", show=True),
         Binding("enter", "edit_host", "Edit Host", show=True),
         Binding("ctrl+j", "preview_json", "Preview JSON", show=True),
         Binding("ctrl+e", "export_task", "Export AP Task", show=True),
@@ -214,6 +215,7 @@ class UpdateInventoryScreen(Screen):
                 yield Button("Save Changes", id="save_button", variant="primary", disabled=True)
                 yield Button("Add Host", id="add_host_button", variant="success")
                 yield Button("Remove Host", id="remove_host_button", variant="error", disabled=True)
+                yield Button("Launch Workflow", id="launch_workflow_button", variant="warning", disabled=True)
                 yield Button("Cancel", id="cancel_button", variant="default")
 
         yield Footer()
@@ -433,9 +435,10 @@ class UpdateInventoryScreen(Screen):
             if new_cursor_row < hosts_table.row_count:
                 hosts_table.cursor_coordinate = (new_cursor_row, 0)
 
-        # Enable/disable Remove Host button based on selection
-        remove_button = self.query_one("#remove_host_button", Button)
-        remove_button.disabled = hosts_table.row_count == 0
+        # Enable/disable Remove Host and Launch Workflow buttons based on selection
+        has_hosts = hosts_table.row_count > 0
+        self.query_one("#remove_host_button", Button).disabled = not has_hosts
+        self.query_one("#launch_workflow_button", Button).disabled = not has_hosts
 
     def _mark_dirty(self) -> None:
         """Mark form as dirty and enable Save Changes button"""
@@ -462,6 +465,8 @@ class UpdateInventoryScreen(Screen):
             self.run_worker(self._show_add_host_modal())
         elif event.button.id == "remove_host_button":
             self.run_worker(self._remove_host())
+        elif event.button.id == "launch_workflow_button":
+            self.run_worker(self._launch_workflow_for_host())
         elif event.button.id == "cancel_button":
             self.action_close()
 
@@ -799,6 +804,146 @@ class UpdateInventoryScreen(Screen):
         """Toggle enabled state of selected host (Ctrl+X)"""
         self.run_worker(self._toggle_host_enabled())
 
+    def action_launch_workflow_for_host(self) -> None:
+        """Launch a workflow template targeting the selected host (Ctrl+L)"""
+        self.run_worker(self._launch_workflow_for_host())
+
+    async def _launch_workflow_for_host(self) -> None:
+        """Pick a workflow template and launch it with limit/inventory pre-filled for the selected host"""
+        hosts_table = self.query_one("#hosts_table", DataTable)
+
+        if not hosts_table.cursor_coordinate or hosts_table.row_count == 0:
+            self.notify("No host selected", severity="warning")
+            return
+
+        try:
+            cursor_row = hosts_table.cursor_coordinate[0]
+            host_id = int(hosts_table.get_row_at(cursor_row)[0])
+            host = next((h for h in self.hosts_data if h.get("id") == host_id), None)
+            if not host:
+                self.notify("Host not found", severity="error")
+                return
+
+            host_name = host.get("name", "Unknown")
+            inventory_name = self.original_data.get("name", f"Inventory #{self.inventory_id}")
+
+            from awx_tui.client import AWXClient
+            from awx_tui.modals.confirm_launch import ConfirmLaunchModal
+            from awx_tui.modals.launch_prompt import LaunchPromptModal
+            from awx_tui.modals.select_workflow import SelectWorkflowModal
+            from awx_tui.utils.launch_prompts import get_active_prompt_fields
+
+            client = self.app.instance_manager.get_current_client()
+
+            if isinstance(client, AWXClient):
+                async with client:
+                    templates_resp = await client.get("/api/v2/unified_job_templates/", params={"page_size": 200})
+            else:
+                templates_resp = await client.get("/api/v2/unified_job_templates/", params={"page_size": 200})
+
+            launchable_templates = [
+                t
+                for t in templates_resp.get("results", [])
+                if t.get("type") in ("job_template", "workflow_job_template")
+            ]
+            if not launchable_templates:
+                self.notify("No job or workflow templates available", severity="warning", timeout=4)
+                return
+
+            selected_tpl = await self.app.push_screen_wait(
+                SelectWorkflowModal(host_name=host_name, inventory_name=inventory_name, workflows=launchable_templates)
+            )
+            if not selected_tpl:
+                return
+
+            tpl_id = selected_tpl.get("id")
+            tpl_name = selected_tpl.get("name", "Unknown")
+            is_workflow = selected_tpl.get("type") == "workflow_job_template"
+            endpoint_base = (
+                f"/api/v2/workflow_job_templates/{tpl_id}" if is_workflow else f"/api/v2/job_templates/{tpl_id}"
+            )
+            launch_endpoint = f"{endpoint_base}/launch/"
+            result_label = "Workflow Job" if is_workflow else "Job"
+            active_prompts = get_active_prompt_fields(selected_tpl)
+            launch_payload: dict = {}
+
+            if active_prompts:
+                launch_info: dict = {}
+                survey_spec = None
+                inventories = []
+
+                async def _fetch_meta(c):
+                    nonlocal launch_info, survey_spec, inventories
+                    try:
+                        launch_info = await c.get(launch_endpoint)
+                    except Exception as err:
+                        self.app.log.warning(f"Could not fetch launch info for template #{tpl_id}: {err}")
+
+                    if launch_info.get("survey_enabled", selected_tpl.get("survey_enabled", False)):
+                        try:
+                            survey_spec = await c.get(f"{endpoint_base}/survey_spec/")
+                        except Exception as err:
+                            self.app.log.warning(f"Could not fetch survey_spec for template #{tpl_id}: {err}")
+
+                    if launch_info.get("ask_inventory_on_launch", selected_tpl.get("ask_inventory_on_launch", False)):
+                        try:
+                            inv_resp = await c.get("/api/v2/inventories/", params={"page_size": 200})
+                            inventories = inv_resp.get("results", [])
+                        except Exception as err:
+                            self.app.log.warning(f"Could not fetch inventories: {err}")
+
+                if isinstance(client, AWXClient):
+                    async with client:
+                        await _fetch_meta(client)
+                else:
+                    await _fetch_meta(client)
+
+                # Pre-fill limit with the selected host and inventory with the current inventory
+                defaults = dict(launch_info.get("defaults") or {})
+                if launch_info.get("ask_limit_on_launch", selected_tpl.get("ask_limit_on_launch", False)):
+                    defaults["limit"] = host_name
+                if launch_info.get("ask_inventory_on_launch", selected_tpl.get("ask_inventory_on_launch", False)):
+                    defaults["inventory"] = self.inventory_id
+                launch_info["defaults"] = defaults
+
+                result = await self.app.push_screen_wait(
+                    LaunchPromptModal(
+                        template_data=selected_tpl,
+                        launch_info=launch_info,
+                        survey_spec=survey_spec,
+                        inventories=inventories,
+                    )
+                )
+                if result is None:
+                    self.notify("Launch cancelled", timeout=2)
+                    return
+                launch_payload = result
+            else:
+                confirmed = await self.app.push_screen_wait(ConfirmLaunchModal(selected_tpl))
+                if not confirmed:
+                    self.notify("Launch cancelled", timeout=2)
+                    return
+
+            self.notify(f"Launching '{tpl_name}' for host '{host_name}'...", timeout=3)
+
+            if isinstance(client, AWXClient):
+                async with client:
+                    response = await client.post(launch_endpoint, data=launch_payload)
+            else:
+                response = await client.post(launch_endpoint, data=launch_payload)
+
+            job_id = response.get("id")
+            self.notify(
+                f"[green]✓[/green] {result_label} #{job_id} '{tpl_name}' launched for host '{host_name}'!",
+                timeout=5,
+            )
+
+        except Exception as e:
+            import traceback
+
+            self.app.log.error(f"Failed to launch workflow for host: {e}\n{traceback.format_exc()}")
+            self.notify(f"[red]✗[/red] Failed to launch workflow: {e}", severity="error", timeout=5)
+
     async def _toggle_host_enabled(self) -> None:
         """Toggle the enabled state of the selected host"""
         hosts_table = self.query_one("#hosts_table", DataTable)
@@ -978,10 +1123,11 @@ class UpdateInventoryScreen(Screen):
         return inventory_data
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        """Enable/disable Remove Host button based on selection"""
-        remove_button = self.query_one("#remove_host_button", Button)
+        """Enable/disable Remove Host and Launch Workflow buttons based on selection"""
         hosts_table = self.query_one("#hosts_table", DataTable)
-        remove_button.disabled = hosts_table.row_count == 0
+        has_hosts = hosts_table.row_count > 0
+        self.query_one("#remove_host_button", Button).disabled = not has_hosts
+        self.query_one("#launch_workflow_button", Button).disabled = not has_hosts
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle host selection (Enter key on row)"""
