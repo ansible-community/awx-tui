@@ -158,3 +158,92 @@ def test_select_workflow_modal_instantiation():
     inv_hosts = asyncio.run(client.get("/api/v2/inventories/1/hosts/"))
     assert inv_hosts["count"] > 0
     assert inv_hosts["results"][0]["inventory"] == 1
+
+
+def test_workflow_modals_mount_in_textual_headless():
+    """Mount LaunchPromptModal, SelectWorkflowModal, WorkflowStructureModal, and PendingApprovalsModal in Textual."""
+    from textual.app import App
+
+    from awx_tui.modals.pending_approvals import PendingApprovalsModal
+    from awx_tui.modals.select_workflow import SelectWorkflowModal
+    from awx_tui.modals.workflow_structure import WorkflowStructureModal
+
+    class _DummyInstanceManager:
+        def __init__(self):
+            self._client = MockAWXClient(instance_name="mock-dev")
+
+        def get_current_client(self):
+            return self._client
+
+    class _HarnessApp(App):
+        def __init__(self):
+            super().__init__()
+            self.instance_manager = _DummyInstanceManager()
+
+    async def _exercise():
+        app = _HarnessApp()
+        async with app.run_test() as pilot:
+            # 1. LaunchPromptModal with blank inventory & blank multiplechoice (regression test for Select.NULL)
+            launch_modal = LaunchPromptModal(
+                template_data={
+                    "id": 102,
+                    "type": "workflow_job_template",
+                    "name": "Disaster Recovery",
+                    "ask_inventory_on_launch": True,
+                    "ask_limit_on_launch": True,
+                    "ask_variables_on_launch": True,
+                    "survey_enabled": True,
+                },
+                launch_info={"defaults": {"inventory": None, "limit": "web-01"}},
+                survey_spec={
+                    "name": "DR Survey",
+                    "spec": [
+                        {
+                            "question_name": "Env",
+                            "variable": "env",
+                            "type": "multiplechoice",
+                            "required": False,
+                            "choices": "dev\nprod",
+                        },
+                        {
+                            "question_name": "Regions",
+                            "variable": "regions",
+                            "type": "multiselect",
+                            "required": False,
+                            "choices": "us-east\neu-west",
+                        },
+                    ],
+                },
+                inventories=[{"id": 1, "name": "Production"}, {"id": 2, "name": "Staging"}],
+            )
+            await app.push_screen(launch_modal)
+            await pilot.pause()
+            payload, errors = launch_modal._collect_and_validate()
+            assert errors == []
+            assert payload.get("limit") == "web-01"
+            assert "inventory" not in payload
+            app.pop_screen()
+
+            # 2. SelectWorkflowModal
+            sel_modal = SelectWorkflowModal(
+                host_name="web-01",
+                inventory_name="Production",
+                workflows=[{"id": 102, "type": "workflow_job_template", "name": "Disaster Recovery"}],
+            )
+            await app.push_screen(sel_modal)
+            await pilot.pause()
+            app.pop_screen()
+
+            # 3. WorkflowStructureModal
+            wf_modal = WorkflowStructureModal({"id": 102, "type": "workflow_job_template", "name": "Disaster Recovery"})
+            await app.push_screen(wf_modal)
+            await pilot.pause()
+            app.pop_screen()
+
+            # 4. PendingApprovalsModal
+            approvals_modal = PendingApprovalsModal()
+            await app.push_screen(approvals_modal)
+            await pilot.pause()
+            app.pop_screen()
+
+    asyncio.run(_exercise())

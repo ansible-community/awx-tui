@@ -16,6 +16,9 @@ from textual.widgets.selection_list import Selection
 
 from awx_tui.utils.launch_prompts import build_launch_payload, parse_survey_choices
 
+# Textual 8+ uses Select.NULL for blank selection (Select.BLANK is False in Textual 8)
+_SELECT_EMPTY = getattr(Select, "NULL", Select.BLANK)
+
 
 class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
     """
@@ -172,7 +175,11 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
                     if isinstance(default_inv, dict):
                         default_inv = default_inv.get("id")
                     valid_ids = {opt[1] for opt in inv_options}
-                    initial_inv = default_inv if default_inv in valid_ids else Select.BLANK
+                    initial_inv = (
+                        default_inv
+                        if (not isinstance(default_inv, bool) and default_inv in valid_ids)
+                        else _SELECT_EMPTY
+                    )
                     yield Select(
                         inv_options,
                         prompt="Select inventory...",
@@ -291,7 +298,7 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
                             initial = (
                                 str(default_val)
                                 if default_val is not None and str(default_val) in choices
-                                else Select.BLANK
+                                else _SELECT_EMPTY
                             )
                             yield Select(
                                 options,
@@ -336,7 +343,7 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
 
         if self._flag("ask_inventory_on_launch"):
             inv_val = self.query_one("#prompt-inventory", Select).value
-            if inv_val != Select.BLANK:
+            if inv_val != _SELECT_EMPTY:
                 prompt_values["inventory"] = inv_val
 
         for flag_name, widget_id, payload_key in (
@@ -352,11 +359,11 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
         if not is_workflow:
             if self._flag("ask_job_type_on_launch"):
                 jt_val = self.query_one("#prompt-job-type", Select).value
-                if jt_val != Select.BLANK:
+                if jt_val != _SELECT_EMPTY:
                     prompt_values["job_type"] = jt_val
             if self._flag("ask_verbosity_on_launch"):
                 v_val = self.query_one("#prompt-verbosity", Select).value
-                if v_val != Select.BLANK:
+                if v_val != _SELECT_EMPTY:
                     prompt_values["verbosity"] = v_val
             if self._flag("ask_diff_mode_on_launch"):
                 prompt_values["diff_mode"] = self.query_one("#prompt-diff-mode", Switch).value
@@ -370,7 +377,7 @@ class LaunchPromptModal(ModalScreen[Optional[Dict[str, Any]]]):
         for var_name, (widget_id, q_type) in self._survey_widget_map.items():
             if q_type == "multiplechoice":
                 sel_val = self.query_one(f"#{widget_id}", Select).value
-                survey_values[var_name] = "" if sel_val == Select.BLANK else sel_val
+                survey_values[var_name] = "" if sel_val == _SELECT_EMPTY else sel_val
             elif q_type == "multiselect":
                 survey_values[var_name] = list(self.query_one(f"#{widget_id}", SelectionList).selected)
             elif q_type == "textarea":
