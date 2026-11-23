@@ -842,15 +842,26 @@ class UpdateJobTemplateScreen(Screen):
                 self.query_one("#timeout", Input).focus()
                 return
 
-        # Validate and parse extra vars JSON (if provided)
+        # Validate and parse extra vars (JSON or YAML, including empty '---')
         extra_vars_dict = None
         if extra_vars_text:
             try:
                 extra_vars_dict = json.loads(extra_vars_text)
-            except json.JSONDecodeError as e:
-                self.notify(f"Invalid JSON in extra vars: {e}", severity="error", timeout=5)
-                self.query_one("#extra_vars_area", TextArea).focus()
-                return
+            except json.JSONDecodeError:
+                try:
+                    parsed_yaml = yaml.safe_load(extra_vars_text)
+                    if parsed_yaml is None:
+                        extra_vars_dict = {}
+                    elif isinstance(parsed_yaml, dict):
+                        extra_vars_dict = parsed_yaml
+                    else:
+                        self.notify("Extra vars must be a JSON/YAML mapping (key: value)", severity="error", timeout=5)
+                        self.query_one("#extra_vars_area", TextArea).focus()
+                        return
+                except yaml.YAMLError as e:
+                    self.notify(f"Invalid JSON/YAML in extra vars: {e}", severity="error", timeout=5)
+                    self.query_one("#extra_vars_area", TextArea).focus()
+                    return
 
         # Build job template data
         job_template_data = {
