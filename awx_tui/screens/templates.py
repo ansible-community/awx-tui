@@ -847,7 +847,6 @@ class TemplatesScreen(Screen):
 
             # Check template type - only support job templates for updates
             template_type = template.get("type", "unknown")
-            template_name = template.get("name", "Unknown")
 
             if template_type == "job_template":
                 # Check for prompt-on-launch fields - cannot edit templates with prompts
@@ -870,11 +869,8 @@ class TemplatesScreen(Screen):
                 has_prompts = any(template.get(field, False) for field in prompt_fields)
 
                 if has_prompts:
-                    self.notify(
-                        f"Cannot edit '{template_name}' - template has prompt-on-launch fields enabled",
-                        severity="warning",
-                        timeout=5,
-                    )
+                    # Open read-only job template preview modal with direct launch support
+                    self.run_worker(self._show_job_template_preview(template))
                     return
 
                 # Open update job template screen
@@ -896,5 +892,13 @@ class TemplatesScreen(Screen):
         from awx_tui.modals.workflow_structure import WorkflowStructureModal
 
         result = await self.app.push_screen_wait(WorkflowStructureModal(template))
+        if result == "launch":
+            await self._show_launch_confirmation(template)
+
+    async def _show_job_template_preview(self, template: dict) -> None:
+        """Show read-only job template preview modal; launch if requested"""
+        from awx_tui.modals.job_template_preview import JobTemplatePreviewModal
+
+        result = await self.app.push_screen_wait(JobTemplatePreviewModal(template))
         if result == "launch":
             await self._show_launch_confirmation(template)

@@ -837,26 +837,34 @@ class UpdateInventoryScreen(Screen):
 
             if isinstance(client, AWXClient):
                 async with client:
-                    wf_resp = await client.get("/api/v2/workflow_job_templates/", params={"page_size": 200})
+                    templates_resp = await client.get("/api/v2/unified_job_templates/", params={"page_size": 200})
             else:
-                wf_resp = await client.get("/api/v2/workflow_job_templates/", params={"page_size": 200})
+                templates_resp = await client.get("/api/v2/unified_job_templates/", params={"page_size": 200})
 
-            workflows = wf_resp.get("results", [])
-            if not workflows:
-                self.notify("No workflow templates available", severity="warning", timeout=4)
+            launchable_templates = [
+                t
+                for t in templates_resp.get("results", [])
+                if t.get("type") in ("job_template", "workflow_job_template")
+            ]
+            if not launchable_templates:
+                self.notify("No job or workflow templates available", severity="warning", timeout=4)
                 return
 
-            selected_wf = await self.app.push_screen_wait(
-                SelectWorkflowModal(host_name=host_name, inventory_name=inventory_name, workflows=workflows)
+            selected_tpl = await self.app.push_screen_wait(
+                SelectWorkflowModal(host_name=host_name, inventory_name=inventory_name, workflows=launchable_templates)
             )
-            if not selected_wf:
+            if not selected_tpl:
                 return
 
-            wf_id = selected_wf.get("id")
-            wf_name = selected_wf.get("name", "Unknown")
-            endpoint_base = f"/api/v2/workflow_job_templates/{wf_id}"
+            tpl_id = selected_tpl.get("id")
+            tpl_name = selected_tpl.get("name", "Unknown")
+            is_workflow = selected_tpl.get("type") == "workflow_job_template"
+            endpoint_base = (
+                f"/api/v2/workflow_job_templates/{tpl_id}" if is_workflow else f"/api/v2/job_templates/{tpl_id}"
+            )
             launch_endpoint = f"{endpoint_base}/launch/"
-            active_prompts = get_active_prompt_fields(selected_wf)
+            result_label = "Workflow Job" if is_workflow else "Job"
+            active_prompts = get_active_prompt_fields(selected_tpl)
             launch_payload: dict = {}
 
             if active_prompts:
@@ -869,15 +877,15 @@ class UpdateInventoryScreen(Screen):
                     try:
                         launch_info = await c.get(launch_endpoint)
                     except Exception as err:
-                        self.app.log.warning(f"Could not fetch launch info for workflow #{wf_id}: {err}")
+                        self.app.log.warning(f"Could not fetch launch info for template #{tpl_id}: {err}")
 
-                    if launch_info.get("survey_enabled", selected_wf.get("survey_enabled", False)):
+                    if launch_info.get("survey_enabled", selected_tpl.get("survey_enabled", False)):
                         try:
                             survey_spec = await c.get(f"{endpoint_base}/survey_spec/")
                         except Exception as err:
-                            self.app.log.warning(f"Could not fetch survey_spec for workflow #{wf_id}: {err}")
+                            self.app.log.warning(f"Could not fetch survey_spec for template #{tpl_id}: {err}")
 
-                    if launch_info.get("ask_inventory_on_launch", selected_wf.get("ask_inventory_on_launch", False)):
+                    if launch_info.get("ask_inventory_on_launch", selected_tpl.get("ask_inventory_on_launch", False)):
                         try:
                             inv_resp = await c.get("/api/v2/inventories/", params={"page_size": 200})
                             inventories = inv_resp.get("results", [])
@@ -892,15 +900,15 @@ class UpdateInventoryScreen(Screen):
 
                 # Pre-fill limit with the selected host and inventory with the current inventory
                 defaults = dict(launch_info.get("defaults") or {})
-                if launch_info.get("ask_limit_on_launch", selected_wf.get("ask_limit_on_launch", False)):
+                if launch_info.get("ask_limit_on_launch", selected_tpl.get("ask_limit_on_launch", False)):
                     defaults["limit"] = host_name
-                if launch_info.get("ask_inventory_on_launch", selected_wf.get("ask_inventory_on_launch", False)):
+                if launch_info.get("ask_inventory_on_launch", selected_tpl.get("ask_inventory_on_launch", False)):
                     defaults["inventory"] = self.inventory_id
                 launch_info["defaults"] = defaults
 
                 result = await self.app.push_screen_wait(
                     LaunchPromptModal(
-                        template_data=selected_wf,
+                        template_data=selected_tpl,
                         launch_info=launch_info,
                         survey_spec=survey_spec,
                         inventories=inventories,
@@ -911,12 +919,12 @@ class UpdateInventoryScreen(Screen):
                     return
                 launch_payload = result
             else:
-                confirmed = await self.app.push_screen_wait(ConfirmLaunchModal(selected_wf))
+                confirmed = await self.app.push_screen_wait(ConfirmLaunchModal(selected_tpl))
                 if not confirmed:
                     self.notify("Launch cancelled", timeout=2)
                     return
 
-            self.notify(f"Launching workflow '{wf_name}' for host '{host_name}'...", timeout=3)
+            self.notify(f"Launching '{tpl_name}' for host '{host_name}'...", timeout=3)
 
             if isinstance(client, AWXClient):
                 async with client:
@@ -926,7 +934,7 @@ class UpdateInventoryScreen(Screen):
 
             job_id = response.get("id")
             self.notify(
-                f"[green]✓[/green] Workflow Job #{job_id} '{wf_name}' launched for host '{host_name}'!",
+                f"[green]✓[/green] {result_label} #{job_id} '{tpl_name}' launched for host '{host_name}'!",
                 timeout=5,
             )
 

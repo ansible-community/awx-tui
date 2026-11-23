@@ -16,6 +16,9 @@ from textual.screen import Screen
 from textual.widgets import Button, Checkbox, Footer, Input, Select, SelectionList, Static, TextArea
 from textual.widgets.selection_list import Selection
 
+# Textual 8+ uses Select.NULL for blank selection (Select.BLANK is False in Textual 8)
+_SELECT_EMPTY = getattr(Select, "NULL", Select.BLANK)
+
 
 class UpdateJobTemplateScreen(Screen):
     """
@@ -721,7 +724,7 @@ class UpdateJobTemplateScreen(Screen):
             # Skip if: (1) during initial data load, OR (2) playbooks already loaded for this project
             if event.select.id == "project" and not self._loading_initial_data:
                 project_id = event.value
-                if project_id is not None and project_id is not Select.BLANK:
+                if project_id is not None and project_id != _SELECT_EMPTY:
                     # Only load if we haven't already loaded playbooks for this project
                     if self._playbooks_loaded_for_project != project_id:
                         # Load playbooks for the selected project
@@ -742,28 +745,28 @@ class UpdateJobTemplateScreen(Screen):
 
         # Get Select values and convert NoSelection to None
         project_id = self.query_one("#project", Select).value
-        if project_id is Select.BLANK:
+        if project_id == _SELECT_EMPTY:
             project_id = None
 
         playbook = self.query_one("#playbook", Select).value
-        if playbook is Select.BLANK:
+        if playbook == _SELECT_EMPTY:
             playbook = None
 
         verbosity = self.query_one("#verbosity", Select).value
-        if verbosity is Select.BLANK:
+        if verbosity == _SELECT_EMPTY:
             verbosity = 0
 
         execution_environment_id = self.query_one("#execution_environment", Select).value
-        if execution_environment_id is Select.BLANK:
+        if execution_environment_id == _SELECT_EMPTY:
             execution_environment_id = None
 
         inventory_id = self.query_one("#inventory", Select).value
-        if inventory_id is Select.BLANK:
+        if inventory_id == _SELECT_EMPTY:
             inventory_id = None
 
         # Get credential from Select (single select)
         credential_id = self.query_one("#credential", Select).value
-        if credential_id is Select.BLANK:
+        if credential_id == _SELECT_EMPTY:
             credential_id = None
 
         limit = self.query_one("#limit", Input).value.strip()
@@ -1058,27 +1061,27 @@ class UpdateJobTemplateScreen(Screen):
 
         # Get Select values
         project_id = self.query_one("#project", Select).value
-        if project_id is Select.BLANK:
+        if project_id == _SELECT_EMPTY:
             project_id = None
 
         playbook = self.query_one("#playbook", Select).value
-        if playbook is Select.BLANK:
+        if playbook == _SELECT_EMPTY:
             playbook = None
 
         verbosity = self.query_one("#verbosity", Select).value
-        if verbosity is Select.BLANK:
+        if verbosity == _SELECT_EMPTY:
             verbosity = 0
 
         execution_environment_id = self.query_one("#execution_environment", Select).value
-        if execution_environment_id is Select.BLANK:
+        if execution_environment_id == _SELECT_EMPTY:
             execution_environment_id = None
 
         inventory_id = self.query_one("#inventory", Select).value
-        if inventory_id is Select.BLANK:
+        if inventory_id == _SELECT_EMPTY:
             inventory_id = None
 
         credential_id = self.query_one("#credential", Select).value
-        if credential_id is Select.BLANK:
+        if credential_id == _SELECT_EMPTY:
             credential_id = None
 
         limit = self.query_one("#limit", Input).value.strip()
@@ -1156,7 +1159,7 @@ class UpdateJobTemplateScreen(Screen):
             """Get (name, id) from Select widget, returns (None, None) if not selected"""
             select_widget = self.query_one(f"#{widget_id}", Select)
             selected_id = select_widget.value
-            if selected_id is None or selected_id is Select.BLANK:
+            if selected_id is None or selected_id == _SELECT_EMPTY:
                 return None, None
 
             # Find the name by looking through options
@@ -1175,11 +1178,11 @@ class UpdateJobTemplateScreen(Screen):
         credential_name, credential_id = get_selected_name("credential")
 
         playbook = self.query_one("#playbook", Select).value
-        if playbook is Select.BLANK:
+        if playbook == _SELECT_EMPTY:
             playbook = None
 
         verbosity = self.query_one("#verbosity", Select).value
-        if verbosity is Select.BLANK:
+        if verbosity == _SELECT_EMPTY:
             verbosity = 0
 
         limit = self.query_one("#limit", Input).value.strip()
