@@ -215,6 +215,7 @@ class UpdateInventoryScreen(Screen):
                 yield Button("Save Changes", id="save_button", variant="primary", disabled=True)
                 yield Button("Add Host", id="add_host_button", variant="success")
                 yield Button("Remove Host", id="remove_host_button", variant="error", disabled=True)
+                yield Button("Launch Workflow", id="launch_workflow_button", variant="warning", disabled=True)
                 yield Button("Cancel", id="cancel_button", variant="default")
 
         yield Footer()
@@ -434,9 +435,10 @@ class UpdateInventoryScreen(Screen):
             if new_cursor_row < hosts_table.row_count:
                 hosts_table.cursor_coordinate = (new_cursor_row, 0)
 
-        # Enable/disable Remove Host button based on selection
-        remove_button = self.query_one("#remove_host_button", Button)
-        remove_button.disabled = hosts_table.row_count == 0
+        # Enable/disable Remove Host and Launch Workflow buttons based on selection
+        has_hosts = hosts_table.row_count > 0
+        self.query_one("#remove_host_button", Button).disabled = not has_hosts
+        self.query_one("#launch_workflow_button", Button).disabled = not has_hosts
 
     def _mark_dirty(self) -> None:
         """Mark form as dirty and enable Save Changes button"""
@@ -463,6 +465,8 @@ class UpdateInventoryScreen(Screen):
             self.run_worker(self._show_add_host_modal())
         elif event.button.id == "remove_host_button":
             self.run_worker(self._remove_host())
+        elif event.button.id == "launch_workflow_button":
+            self.run_worker(self._launch_workflow_for_host())
         elif event.button.id == "cancel_button":
             self.action_close()
 
@@ -1111,10 +1115,11 @@ class UpdateInventoryScreen(Screen):
         return inventory_data
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        """Enable/disable Remove Host button based on selection"""
-        remove_button = self.query_one("#remove_host_button", Button)
+        """Enable/disable Remove Host and Launch Workflow buttons based on selection"""
         hosts_table = self.query_one("#hosts_table", DataTable)
-        remove_button.disabled = hosts_table.row_count == 0
+        has_hosts = hosts_table.row_count > 0
+        self.query_one("#remove_host_button", Button).disabled = not has_hosts
+        self.query_one("#launch_workflow_button", Button).disabled = not has_hosts
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle host selection (Enter key on row)"""
