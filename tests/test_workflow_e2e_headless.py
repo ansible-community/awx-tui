@@ -5,7 +5,7 @@ Headless Textual end-to-end regression tests for workflow UI flows using MockAWX
 import asyncio
 
 from textual.app import App
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, Static
 
 from awx_tui.config import AppConfig
 from awx_tui.mock_data import MockAWXClient
@@ -99,16 +99,17 @@ def test_e2e_launch_prompt_validation_and_submit():
             await pilot.pause(0.2)
 
             # Submit with empty required survey field -> should show validation error and stay open
-            await pilot.click("#launch-button")
-            await pilot.pause(0.1)
+            modal.query_one("#launch-button", Button).press()
+            await pilot.pause(0.2)
             errors_widget = modal.query_one("#launch-prompt-errors", Static)
             assert errors_widget.has_class("visible")
             assert dismissed == []
 
             # Fill required survey field -> should dismiss with merged payload
             modal.query_one("#survey-q-0", Input).value = "CHG999"
-            await pilot.click("#launch-button")
             await pilot.pause(0.1)
+            modal.query_one("#launch-button", Button).press()
+            await pilot.pause(0.2)
             assert len(dismissed) == 1
             assert dismissed[0]["limit"] == "web-01.example.com"
             assert dismissed[0]["extra_vars"] == {"env": "dr", "change_ticket": "CHG999"}
