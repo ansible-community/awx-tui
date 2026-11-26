@@ -32,6 +32,15 @@ class _WorkflowTestApp(App):
         self.app_config = AppConfig()
 
 
+async def _wait_until(pilot, predicate, timeout_steps: int = 30, step: float = 0.1) -> bool:
+    """Poll until predicate() is truthy or timeout_steps elapse."""
+    for _ in range(timeout_steps):
+        if predicate():
+            return True
+        await pilot.pause(step)
+    return bool(predicate())
+
+
 def test_e2e_workflow_structure_preview_and_launch_button():
     """Verify WorkflowStructureModal loads 5 nodes and Launch button dismisses with 'launch'."""
 
@@ -51,14 +60,12 @@ def test_e2e_workflow_structure_preview_and_launch_button():
                 }
             )
             app.push_screen(modal, callback=dismissed.append)
-            await pilot.pause(0.4)
-
+            await pilot.pause()
             table = modal.query_one("#workflow-structure-table", DataTable)
-            assert table.row_count == 5
+            assert await _wait_until(pilot, lambda: table.row_count == 5)
 
-            await pilot.click("#launch-wf-button")
-            await pilot.pause(0.1)
-            assert dismissed == ["launch"]
+            modal.query_one("#launch-wf-button", Button).press()
+            assert await _wait_until(pilot, lambda: dismissed == ["launch"])
 
     asyncio.run(_run())
 
@@ -96,21 +103,19 @@ def test_e2e_launch_prompt_validation_and_submit():
                 inventories=[{"id": 1, "name": "Production Servers"}],
             )
             app.push_screen(modal, callback=dismissed.append)
-            await pilot.pause(0.2)
+            await pilot.pause(0.1)
 
             # Submit with empty required survey field -> should show validation error and stay open
             modal.query_one("#launch-button", Button).press()
-            await pilot.pause(0.2)
             errors_widget = modal.query_one("#launch-prompt-errors", Static)
-            assert errors_widget.has_class("visible")
+            assert await _wait_until(pilot, lambda: errors_widget.has_class("visible"))
             assert dismissed == []
 
             # Fill required survey field -> should dismiss with merged payload
             modal.query_one("#survey-q-0", Input).value = "CHG999"
-            await pilot.pause(0.1)
+            await pilot.pause(0.05)
             modal.query_one("#launch-button", Button).press()
-            await pilot.pause(0.2)
-            assert len(dismissed) == 1
+            assert await _wait_until(pilot, lambda: len(dismissed) == 1)
             assert dismissed[0]["limit"] == "web-01.example.com"
             assert dismissed[0]["extra_vars"] == {"env": "dr", "change_ticket": "CHG999"}
 
@@ -134,18 +139,15 @@ def test_e2e_select_workflow_modal_filter_and_select():
                 workflows=workflows,
             )
             app.push_screen(modal, callback=dismissed.append)
-            await pilot.pause(0.1)
-
+            await pilot.pause()
             table = modal.query_one("#select-wf-table", DataTable)
-            assert table.row_count == 2
+            assert await _wait_until(pilot, lambda: table.row_count == 2)
 
             modal.query_one("#select-wf-filter", Input).value = "Disaster"
-            await pilot.pause(0.1)
-            assert table.row_count == 1
+            assert await _wait_until(pilot, lambda: table.row_count == 1)
 
-            await pilot.click("#select-button")
-            await pilot.pause(0.1)
-            assert len(dismissed) == 1
+            modal.query_one("#select-button", Button).press()
+            assert await _wait_until(pilot, lambda: len(dismissed) == 1)
             assert dismissed[0]["id"] == 102
 
     asyncio.run(_run())
@@ -163,14 +165,14 @@ def test_e2e_workflow_job_detail_progress_view():
         async with app.run_test(size=(140, 40)) as pilot:
             modal = JobDetailModal(job_id=wf_id, job_type="workflow_job")
             app.push_screen(modal)
-            await pilot.pause(0.5)
+            await pilot.pause()
 
             table = modal.query_one("#workflow-nodes-table", DataTable)
-            assert table.row_count == 5
+            assert await _wait_until(pilot, lambda: table.row_count == 5)
             assert len(modal._workflow_nodes) == 5
 
             modal.action_close()
-            await pilot.pause(0.1)
+            await pilot.pause(0.05)
 
     asyncio.run(_run())
 
@@ -185,18 +187,17 @@ def test_e2e_pending_approvals_review_and_approve():
         async with app.run_test(size=(140, 40)) as pilot:
             modal = PendingApprovalsModal()
             app.push_screen(modal)
-            await pilot.pause(0.5)
+            await pilot.pause()
 
             table = modal.query_one("#pending-approvals-table", DataTable)
-            assert table.row_count == 2
+            assert await _wait_until(pilot, lambda: table.row_count == 2)
 
-            # Click Review -> opens ConfirmApprovalModal -> click Approve
-            await pilot.click("#review-button")
-            await pilot.pause(0.2)
-            await pilot.click("#approve-button")
-            await pilot.pause(0.5)
+            # Press Review -> opens ConfirmApprovalModal -> press Approve
+            modal.query_one("#review-button", Button).press()
+            assert await _wait_until(pilot, lambda: len(app.screen.query("#approve-button")) == 1)
+            app.screen.query_one("#approve-button", Button).press()
 
-            assert table.row_count == 1
+            assert await _wait_until(pilot, lambda: table.row_count == 1)
             assert modal._modified is True
 
     asyncio.run(_run())
