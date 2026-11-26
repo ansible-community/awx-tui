@@ -76,18 +76,22 @@ class ConfirmRelaunchModal(ModalScreen[Optional[str]]):
         self.job_data = job_data
 
     def compose(self) -> ComposeResult:
-        # Check job status to determine which buttons to show
+        # Check job status and type to determine labels and buttons
         status = self.job_data.get("status", "unknown")
+        is_workflow = self.job_data.get("type") == "workflow_job"
+        title = "Relaunch Workflow Job" if is_workflow else "Relaunch Job"
+        all_label = "Relaunch All Nodes" if is_workflow else "Relaunch All Hosts"
+        failed_label = "Relaunch Failed Nodes Only" if is_workflow else "Relaunch Failed Only"
 
         with Vertical(id="confirm-dialog"):
-            yield Static("Relaunch Job", id="confirm-title")
+            yield Static(title, id="confirm-title")
             yield Static(self._format_job_info(), id="job-info")
             with Horizontal(id="confirm-buttons"):
                 # For failed jobs: show both "Relaunch All" and "Relaunch Failed Only"
                 # For successful jobs: show only "Relaunch"
                 if status == "failed":
-                    yield Button("Relaunch All Hosts", variant="primary", id="relaunch-all-button")
-                    yield Button("Relaunch Failed Only", variant="warning", id="relaunch-failed-button")
+                    yield Button(all_label, variant="primary", id="relaunch-all-button")
+                    yield Button(failed_label, variant="warning", id="relaunch-failed-button")
                 else:
                     yield Button("Relaunch", variant="primary", id="relaunch-all-button")
                 yield Button("Cancel", variant="default", id="cancel-button")
@@ -124,21 +128,38 @@ class ConfirmRelaunchModal(ModalScreen[Optional[str]]):
         }.get(status, "❓")
 
         # Build info display
-        info_lines = [
-            f"Job ID: #{jid}",
-            f"Name: {name}",
-            f"Organization: {org}",
-            f"Created By: {created_by}",
-            "",
-            f"Job Type: {job_type.upper()}",
-            f"Inventory: {inventory}",
-            f"Project: {project}",
-            f"Playbook: {playbook}",
-            f"Execution Environment: {exec_env if exec_env != 'N/A' else 'PROJECT DEFAULT'}",
-            "",
-            f"Original Job Status: {status_emoji} {status.title()}",
-            f"Finished: {finished_str} ago",
-        ]
+        is_workflow = self.job_data.get("type") == "workflow_job"
+        if is_workflow:
+            wf_template = summary.get("workflow_job_template", {}).get("name", "N/A")
+            info_lines = [
+                f"Workflow Job ID: #{jid}",
+                f"Name: {name}",
+                f"Organization: {org}",
+                f"Created By: {created_by}",
+                "",
+                "Type: 🔗 WORKFLOW",
+                f"Workflow Template: {wf_template}",
+                f"Inventory: {inventory}",
+                "",
+                f"Original Job Status: {status_emoji} {status.title()}",
+                f"Finished: {finished_str} ago",
+            ]
+        else:
+            info_lines = [
+                f"Job ID: #{jid}",
+                f"Name: {name}",
+                f"Organization: {org}",
+                f"Created By: {created_by}",
+                "",
+                f"Job Type: {job_type.upper()}",
+                f"Inventory: {inventory}",
+                f"Project: {project}",
+                f"Playbook: {playbook}",
+                f"Execution Environment: {exec_env if exec_env != 'N/A' else 'PROJECT DEFAULT'}",
+                "",
+                f"Original Job Status: {status_emoji} {status.title()}",
+                f"Finished: {finished_str} ago",
+            ]
 
         return "\n".join(info_lines)
 

@@ -623,6 +623,16 @@ class MockAWXClient:
             job_id = int(endpoint.split("/")[4])
             return self._get_job_output(job_id)
 
+        elif endpoint.startswith("/api/v2/workflow_jobs/") and endpoint.endswith("/workflow_nodes/"):
+            # Workflow job nodes
+            wf_job_id = int(endpoint.split("/")[4])
+            return self._get_workflow_job_nodes(wf_job_id)
+
+        elif endpoint.startswith("/api/v2/workflow_jobs/") and endpoint.endswith("/"):
+            # Workflow job detail
+            wf_job_id = int(endpoint.split("/")[-2])
+            return self._get_workflow_job_detail(wf_job_id)
+
         elif endpoint == "/api/v2/instances/":
             return self._get_instances()
 
@@ -632,8 +642,28 @@ class MockAWXClient:
         elif endpoint == "/api/v2/job_templates/":
             return self._get_job_templates()
 
+        elif (
+            endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")
+        ) and endpoint.endswith("/launch/"):
+            template_id = int(endpoint.split("/")[-3])
+            is_workflow = endpoint.startswith("/api/v2/workflow_job_templates/")
+            return self._get_template_launch_info(template_id, is_workflow=is_workflow)
+
+        elif (
+            endpoint.startswith("/api/v2/job_templates/") or endpoint.startswith("/api/v2/workflow_job_templates/")
+        ) and endpoint.endswith("/survey_spec/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._get_template_survey_spec(template_id)
+
+        elif endpoint.startswith("/api/v2/workflow_job_templates/") and endpoint.endswith("/workflow_nodes/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._get_workflow_template_nodes(template_id)
+
         elif endpoint == "/api/v2/workflow_job_templates/":
             return self._get_workflow_templates()
+
+        elif endpoint == "/api/v2/workflow_approvals/":
+            return self._get_workflow_approvals(params or {})
 
         elif endpoint == "/api/v2/projects/":
             return self._get_projects()
@@ -647,6 +677,14 @@ class MockAWXClient:
 
         elif endpoint == "/api/v2/inventories/":
             return self._get_inventories()
+
+        elif endpoint.startswith("/api/v2/inventories/") and endpoint.endswith("/hosts/"):
+            inventory_id = int(endpoint.split("/")[-3])
+            return self._get_inventory_hosts(inventory_id)
+
+        elif endpoint.startswith("/api/v2/inventories/") and endpoint.endswith("/"):
+            inventory_id = int(endpoint.split("/")[-2])
+            return self._get_inventory_detail(inventory_id)
 
         elif endpoint == "/api/v2/hosts/":
             return self._get_hosts()
@@ -707,6 +745,157 @@ class MockAWXClient:
 
         # Job not found
         raise ValueError(f"Job {job_id} not found")
+
+    def _get_workflow_job_detail(self, wf_job_id: int) -> Dict[str, Any]:
+        """Get individual workflow job detail"""
+        all_jobs = self.mock_data.get("running_jobs", []) + self.mock_data.get("recent_jobs", [])
+        for job in all_jobs:
+            if job["id"] == wf_job_id:
+                return job
+
+        now = datetime.now()
+        return {
+            "id": wf_job_id,
+            "type": "workflow_job",
+            "name": f"Deploy Pipeline #{wf_job_id}",
+            "status": "running",
+            "launch_type": "manual",
+            "started": (now - timedelta(minutes=3)).isoformat() + "Z",
+            "finished": None,
+            "elapsed": 180.0,
+            "summary_fields": {
+                "created_by": {"id": 1, "username": "admin"},
+                "workflow_job_template": {"id": 10, "name": "Deploy Pipeline"},
+            },
+        }
+
+    def _get_workflow_job_nodes(self, wf_job_id: int) -> Dict[str, Any]:
+        """Get mock workflow job nodes reflecting the parent workflow job status"""
+        wf_job = self._get_workflow_job_detail(wf_job_id)
+        wf_status = wf_job.get("status", "running")
+        deploy_status = "canceled" if wf_status == "canceled" else ("failed" if wf_status == "failed" else "running")
+
+        base_job_id = wf_job_id * 10
+        nodes = [
+            {
+                "id": 101,
+                "job": base_job_id + 1,
+                "do_not_run": False,
+                "success_nodes": [102],
+                "failure_nodes": [104],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 1, "name": "Pre-flight Checks", "unified_job_type": "job"},
+                    "job": {
+                        "id": base_job_id + 1,
+                        "name": "Pre-flight Checks",
+                        "type": "job",
+                        "status": "successful",
+                        "elapsed": 24.5,
+                    },
+                },
+            },
+            {
+                "id": 102,
+                "job": base_job_id + 2,
+                "do_not_run": False,
+                "success_nodes": [103],
+                "failure_nodes": [104],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
+                    "job": {
+                        "id": base_job_id + 2,
+                        "name": "Deploy Application",
+                        "type": "job",
+                        "status": deploy_status,
+                        "elapsed": 62.1,
+                    },
+                },
+            },
+            {
+                "id": 103,
+                "job": None,
+                "do_not_run": False,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [105],
+                "summary_fields": {
+                    "unified_job_template": {"id": 3, "name": "Smoke Tests", "unified_job_type": "job"},
+                },
+            },
+            {
+                "id": 104,
+                "job": None,
+                "do_not_run": True,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [105],
+                "summary_fields": {
+                    "unified_job_template": {"id": 4, "name": "Rollback Release", "unified_job_type": "job"},
+                },
+            },
+            {
+                "id": 105,
+                "job": None,
+                "do_not_run": False,
+                "success_nodes": [],
+                "failure_nodes": [],
+                "always_nodes": [],
+                "summary_fields": {
+                    "unified_job_template": {"id": 5, "name": "Send Notification", "unified_job_type": "job"},
+                },
+            },
+        ]
+        return {"count": len(nodes), "next": None, "previous": None, "results": nodes}
+
+    def _ensure_mock_approvals(self) -> list:
+        """Lazily initialize stateful mock workflow approvals on this mock instance"""
+        if "workflow_approvals" not in self.mock_data:
+            now = datetime.now()
+            self.mock_data["workflow_approvals"] = [
+                {
+                    "id": 901,
+                    "type": "workflow_approval",
+                    "name": "DR Failover Approval",
+                    "description": "Approve promoting standby database and switching production DNS.",
+                    "status": "pending",
+                    "created": (now - timedelta(minutes=8)).isoformat() + "Z",
+                    "approval_expiration": (now + timedelta(minutes=52)).isoformat() + "Z",
+                    "summary_fields": {
+                        "source_workflow_job": {"id": 6001, "name": "Disaster Recovery"},
+                    },
+                },
+                {
+                    "id": 902,
+                    "type": "workflow_approval",
+                    "name": "Production Cutover Gate",
+                    "description": "Confirm smoke tests passed before shifting 100% traffic.",
+                    "status": "pending",
+                    "created": (now - timedelta(minutes=3)).isoformat() + "Z",
+                    "approval_expiration": None,
+                    "summary_fields": {
+                        "source_workflow_job": {"id": 6002, "name": "Full Deployment Workflow"},
+                    },
+                },
+            ]
+        return self.mock_data["workflow_approvals"]
+
+    def _get_workflow_approvals(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get mock workflow approvals with optional status filtering"""
+        approvals = self._ensure_mock_approvals()
+        status_filter = params.get("status")
+        if status_filter:
+            filtered = [a for a in approvals if a.get("status") == status_filter]
+        else:
+            filtered = list(approvals)
+        page_size = int(params.get("page_size", 200))
+        return {
+            "count": len(filtered),
+            "next": None,
+            "previous": None,
+            "results": filtered[:page_size],
+        }
 
     def _get_job_output(self, job_id: int) -> str:
         """Get job output/stdout"""
@@ -1032,7 +1221,8 @@ class MockAWXClient:
                 "modified": (datetime.now() - timedelta(days=10)).isoformat() + "Z",
                 "ask_variables_on_launch": True,
                 "ask_inventory_on_launch": True,
-                "ask_limit_on_launch": False,
+                "ask_limit_on_launch": True,
+                "survey_enabled": True,
                 "summary_fields": {
                     "organization": {"id": 2, "name": "Operations"},
                 },
@@ -1055,6 +1245,198 @@ class MockAWXClient:
         ]
 
         return {"count": len(workflow_templates), "next": None, "previous": None, "results": workflow_templates}
+
+    def _get_template_launch_info(self, template_id: int, is_workflow: bool = False) -> Dict[str, Any]:
+        """Get mock GET /launch/ metadata for a job or workflow template"""
+        templates = (
+            self._get_workflow_templates().get("results", [])
+            if is_workflow
+            else self._get_job_templates().get("results", [])
+        )
+        template = next((t for t in templates if t.get("id") == template_id), {})
+        return {
+            "can_start_without_user_input": not any(
+                template.get(k, False)
+                for k in (
+                    "ask_variables_on_launch",
+                    "ask_inventory_on_launch",
+                    "ask_limit_on_launch",
+                    "survey_enabled",
+                )
+            ),
+            "ask_variables_on_launch": template.get("ask_variables_on_launch", False),
+            "ask_inventory_on_launch": template.get("ask_inventory_on_launch", False),
+            "ask_limit_on_launch": template.get("ask_limit_on_launch", False),
+            "ask_scm_branch_on_launch": template.get("ask_scm_branch_on_launch", False),
+            "ask_tags_on_launch": template.get("ask_tags_on_launch", False),
+            "ask_skip_tags_on_launch": template.get("ask_skip_tags_on_launch", False),
+            "ask_job_type_on_launch": template.get("ask_job_type_on_launch", False),
+            "ask_verbosity_on_launch": template.get("ask_verbosity_on_launch", False),
+            "ask_diff_mode_on_launch": template.get("ask_diff_mode_on_launch", False),
+            "ask_forks_on_launch": template.get("ask_forks_on_launch", False),
+            "survey_enabled": template.get("survey_enabled", False),
+            "defaults": {
+                "inventory": {"id": 1, "name": "Production"},
+                "limit": "",
+                "extra_vars": "maintenance_window: true\n",
+                "job_type": "run",
+                "verbosity": 0,
+                "diff_mode": False,
+                "forks": 5,
+            },
+        }
+
+    def _get_template_survey_spec(self, template_id: int) -> Dict[str, Any]:
+        """Get mock survey specification for templates with survey_enabled"""
+        return {
+            "name": "Deployment Survey",
+            "description": "Provide target parameters before launching this workflow.",
+            "spec": [
+                {
+                    "question_name": "Target Environment",
+                    "question_description": "Environment to target for execution",
+                    "required": True,
+                    "type": "multiplechoice",
+                    "variable": "target_env",
+                    "default": "staging",
+                    "choices": "dev\nstaging\nproduction",
+                },
+                {
+                    "question_name": "Change Ticket ID",
+                    "question_description": "ITSM change reference (e.g. CHG001234)",
+                    "required": True,
+                    "type": "text",
+                    "variable": "change_ticket",
+                    "default": "CHG000100",
+                },
+                {
+                    "question_name": "Retry Count",
+                    "question_description": "Max retries on transient failure (0-5)",
+                    "required": False,
+                    "type": "integer",
+                    "variable": "retry_count",
+                    "default": 2,
+                    "min": 0,
+                    "max": 5,
+                },
+            ],
+        }
+
+    def _get_workflow_template_nodes(self, template_id: int) -> Dict[str, Any]:
+        """Get mock static workflow_nodes for a Workflow Job Template"""
+        if template_id == 102:
+            # Disaster Recovery workflow (with approval gate + branching)
+            nodes = [
+                {
+                    "id": 201,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [202],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 1, "name": "Verify Backups", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 202,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [203],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {
+                            "id": 2,
+                            "name": "DR Failover Approval",
+                            "unified_job_type": "workflow_approval",
+                        },
+                    },
+                },
+                {
+                    "id": 203,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [204],
+                    "failure_nodes": [205],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 3, "name": "Promote Standby DB", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 204,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [205],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 4, "name": "Switch DNS Traffic", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 205,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 5, "name": "Notify Incident Channel", "unified_job_type": "job"},
+                    },
+                },
+            ]
+        else:
+            # Default deployment workflow structure
+            nodes = [
+                {
+                    "id": 301,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [302],
+                    "failure_nodes": [304],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 1, "name": "Pre-flight Checks", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 302,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [303],
+                    "failure_nodes": [304],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 2, "name": "Deploy Application", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 303,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [304],
+                    "always_nodes": [305],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 3, "name": "Smoke Tests", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 304,
+                    "all_parents_must_converge": False,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [305],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 4, "name": "Rollback Release", "unified_job_type": "job"},
+                    },
+                },
+                {
+                    "id": 305,
+                    "all_parents_must_converge": True,
+                    "success_nodes": [],
+                    "failure_nodes": [],
+                    "always_nodes": [],
+                    "summary_fields": {
+                        "unified_job_template": {"id": 5, "name": "Send Notification", "unified_job_type": "job"},
+                    },
+                },
+            ]
+        return {"count": len(nodes), "next": None, "previous": None, "results": nodes}
 
     def _get_projects(self) -> Dict[str, Any]:
         """Get projects"""
@@ -1189,6 +1571,39 @@ class MockAWXClient:
             {"id": 6, "name": "Development", "description": "Dev environment hosts", "total_hosts": 15},
         ]
         return {"count": len(inventories), "next": None, "previous": None, "results": inventories}
+
+    def _get_inventory_detail(self, inventory_id: int) -> Dict[str, Any]:
+        """Get mock inventory detail"""
+        inventories = self._get_inventories().get("results", [])
+        inv = next((i for i in inventories if i["id"] == inventory_id), None)
+        if not inv:
+            inv = {"id": inventory_id, "name": f"Inventory #{inventory_id}", "description": "", "total_hosts": 5}
+        return {
+            **inv,
+            "organization": 1,
+            "variables": "---\nansible_user: automation\n",
+            "summary_fields": {
+                "organization": {"id": 1, "name": "Engineering"},
+            },
+        }
+
+    def _get_inventory_hosts(self, inventory_id: int) -> Dict[str, Any]:
+        """Get mock hosts belonging to a specific inventory"""
+        inv = self._get_inventory_detail(inventory_id)
+        prefix = inv["name"].lower().split()[0]
+        count = min(inv.get("total_hosts", 5), 10)
+        hosts = [
+            {
+                "id": inventory_id * 100 + i,
+                "name": f"{prefix}-{i:02d}.example.com",
+                "description": f"{inv['name']} host #{i}",
+                "inventory": inventory_id,
+                "enabled": i != count,
+                "variables": "",
+            }
+            for i in range(1, count + 1)
+        ]
+        return {"count": len(hosts), "next": None, "previous": None, "results": hosts}
 
     def _get_hosts(self) -> Dict[str, Any]:
         """Get hosts"""
@@ -1483,6 +1898,11 @@ class MockAWXClient:
         """Mock POST request"""
         await asyncio.sleep(random.uniform(0.05, 0.2))  # NOSONAR
 
+        # Handle workflow job template launch
+        if "/workflow_job_templates/" in endpoint and endpoint.endswith("/launch/"):
+            template_id = int(endpoint.split("/")[-3])
+            return self._launch_workflow_template(template_id, data or {})
+
         # Handle job template launch
         if "/job_templates/" in endpoint and endpoint.endswith("/launch/"):
             # Extract template ID from endpoint: /api/v2/job_templates/{id}/launch/
@@ -1495,11 +1915,27 @@ class MockAWXClient:
             project_id = int(endpoint.split("/")[-3])
             return self._sync_project(project_id)
 
+        # Handle workflow job relaunch
+        if "/workflow_jobs/" in endpoint and endpoint.endswith("/relaunch/"):
+            wf_job_id = int(endpoint.split("/")[-3])
+            return self._relaunch_workflow_job(wf_job_id, data or {})
+
         # Handle job relaunch
         if "/jobs/" in endpoint and endpoint.endswith("/relaunch/"):
             # Extract job ID from endpoint: /api/v2/jobs/{id}/relaunch/
             job_id = int(endpoint.split("/")[-3])
             return self._relaunch_job(job_id, data or {})
+
+        # Handle workflow approval approve/deny
+        if "/workflow_approvals/" in endpoint and (endpoint.endswith("/approve/") or endpoint.endswith("/deny/")):
+            approval_id = int(endpoint.split("/")[-3])
+            action = "approved" if endpoint.endswith("/approve/") else "denied"
+            new_status = "successful" if action == "approved" else "failed"
+            for item in self._ensure_mock_approvals():
+                if item.get("id") == approval_id:
+                    item["status"] = new_status
+                    break
+            return {"id": approval_id, "status": action, "detail": f"Workflow approval #{approval_id} {action}"}
 
         # Handle job cancellation
         if endpoint.endswith("/cancel/"):
@@ -1508,6 +1944,49 @@ class MockAWXClient:
             return self._cancel_job(job_id)
 
         return {"detail": "Mock POST not implemented"}
+
+    def _launch_workflow_template(self, template_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock launching a workflow job template"""
+        wf_templates = self._get_workflow_templates().get("results", [])
+        template = next((t for t in wf_templates if t.get("id") == template_id), None)
+        name = template["name"] if template else f"Workflow Template #{template_id}"
+        new_id = random.randint(6000, 6999)  # NOSONAR
+        now = datetime.now()
+        new_job = {
+            "id": new_id,
+            "type": "workflow_job",
+            "name": name,
+            "status": "running",
+            "launch_type": "manual",
+            "started": now.isoformat() + "Z",
+            "finished": None,
+            "elapsed": 0.0,
+            "summary_fields": {
+                "created_by": {"id": 1, "username": "admin"},
+                "workflow_job_template": {"id": template_id, "name": name},
+            },
+        }
+        self.mock_data.setdefault("running_jobs", []).insert(0, new_job)
+        return new_job
+
+    def _relaunch_workflow_job(self, wf_job_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock relaunching a workflow job"""
+        orig = self._get_workflow_job_detail(wf_job_id)
+        new_id = random.randint(7000, 7999)  # NOSONAR
+        now = datetime.now()
+        new_job = {
+            "id": new_id,
+            "type": "workflow_job",
+            "name": orig.get("name", f"Workflow #{wf_job_id}"),
+            "status": "running",
+            "launch_type": "relaunch",
+            "started": now.isoformat() + "Z",
+            "finished": None,
+            "elapsed": 0.0,
+            "summary_fields": orig.get("summary_fields", {}),
+        }
+        self.mock_data.setdefault("running_jobs", []).insert(0, new_job)
+        return new_job
 
     async def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Mock PUT request"""

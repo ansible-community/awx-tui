@@ -872,14 +872,23 @@ class HistoricJobsScreen(Screen):
             self.notify("Relaunch cancelled", timeout=2)
             return
 
-        # Relaunch the job
+        # Relaunch the job or workflow job
         job_id = job.get("id")
         job_name = job.get("name", "Unknown")
+        job_type = job.get("type", "job")
+        is_workflow = job_type == "workflow_job"
+        target_unit = "nodes" if is_workflow else "hosts"
+        job_label = "Workflow Job" if is_workflow else "Job"
+        relaunch_endpoint = (
+            f"/api/v2/workflow_jobs/{job_id}/relaunch/" if is_workflow else f"/api/v2/jobs/{job_id}/relaunch/"
+        )
 
         if relaunch_mode == "all":
-            self.notify(f"Relaunching job #{job_id} '{job_name}' (all hosts)...", timeout=3)
+            self.notify(f"Relaunching {job_label.lower()} #{job_id} '{job_name}' (all {target_unit})...", timeout=3)
         else:  # "failed"
-            self.notify(f"Relaunching job #{job_id} '{job_name}' (failed hosts only)...", timeout=3)
+            self.notify(
+                f"Relaunching {job_label.lower()} #{job_id} '{job_name}' (failed {target_unit} only)...", timeout=3
+            )
 
         try:
             instance_manager = self.app.instance_manager
@@ -887,29 +896,27 @@ class HistoricJobsScreen(Screen):
 
             from awx_tui.client import AWXClient
 
-            # POST to job relaunch endpoint with mode
+            # POST to job/workflow relaunch endpoint with mode
             relaunch_data = {"hosts": relaunch_mode}
 
             if isinstance(client, AWXClient):
                 async with client:
-                    response = await client.post(f"/api/v2/jobs/{job_id}/relaunch/", data=relaunch_data)
-                    new_job_id = response.get("id")
-                    new_job_name = response.get("name", "Unknown")
-                    self.notify(
-                        f"[green]✓[/green] Job #{new_job_id} '{new_job_name}' relaunched successfully!", timeout=5
-                    )
+                    response = await client.post(relaunch_endpoint, data=relaunch_data)
             else:
                 # Mock client
-                response = await client.post(f"/api/v2/jobs/{job_id}/relaunch/", data=relaunch_data)
-                new_job_id = response.get("id")
-                new_job_name = response.get("name", "Unknown")
-                self.notify(f"[green]✓[/green] Job #{new_job_id} '{new_job_name}' relaunched successfully!", timeout=5)
+                response = await client.post(relaunch_endpoint, data=relaunch_data)
+
+            new_job_id = response.get("id")
+            new_job_name = response.get("name", "Unknown")
+            self.notify(
+                f"[green]✓[/green] {job_label} #{new_job_id} '{new_job_name}' relaunched successfully!", timeout=5
+            )
 
         except Exception as e:
             import traceback
 
-            self.app.log.error(f"Failed to relaunch job: {e}\n{traceback.format_exc()}")
-            self.notify(f"[red]✗[/red] Failed to relaunch job: {e}", severity="error", timeout=5)
+            self.app.log.error(f"Failed to relaunch {job_label.lower()}: {e}\n{traceback.format_exc()}")
+            self.notify(f"[red]✗[/red] Failed to relaunch {job_label.lower()}: {e}", severity="error", timeout=5)
 
     def action_back_to_dashboard_esc(self) -> None:
         """Return to dashboard screen (escape key)"""

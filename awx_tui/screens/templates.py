@@ -642,50 +642,23 @@ class TemplatesScreen(Screen):
 
             # Check if template is launchable
             template_type = template.get("type", "")
-            template_name = template.get("name", "Unknown")
 
-            # Only job templates can be launched
-            if template_type != "job_template":
+            # Only job templates and workflow templates can be launched
+            if template_type not in ("job_template", "workflow_job_template"):
                 type_names = {
-                    "workflow_job_template": "workflow template",
                     "project": "project",
                     "system_job_template": "system job",
                     "inventory_source": "inventory source",
                 }
                 type_display = type_names.get(template_type, template_type)
                 self.notify(
-                    f"Cannot launch {type_display} - only job templates can be launched", severity="warning", timeout=5
-                )
-                return
-
-            # Check for prompt-on-launch fields
-            prompt_fields = [
-                "ask_variables_on_launch",
-                "ask_inventory_on_launch",
-                "ask_credential_on_launch",
-                "ask_limit_on_launch",
-                "ask_tags_on_launch",
-                "ask_skip_tags_on_launch",
-                "ask_job_type_on_launch",
-                "ask_execution_environment_on_launch",
-                "ask_labels_on_launch",
-                "ask_scm_branch_on_launch",
-                "ask_diff_mode_on_launch",
-                "ask_verbosity_on_launch",
-                "ask_forks_on_launch",
-            ]
-
-            has_prompts = any(template.get(field, False) for field in prompt_fields)
-
-            if has_prompts:
-                self.notify(
-                    f"Cannot launch '{template_name}' - template requires prompts on launch",
+                    f"Cannot launch {type_display} - only job and workflow templates can be launched",
                     severity="warning",
                     timeout=5,
                 )
                 return
 
-            # Template is launchable - show confirmation modal
+            # Template is launchable - show confirmation or prompt modal
             self.run_worker(self._show_launch_confirmation(template))
 
         except (ValueError, IndexError) as e:
@@ -693,51 +666,108 @@ class TemplatesScreen(Screen):
             self.notify("Error launching template", severity="error")
 
     async def _show_launch_confirmation(self, template: dict) -> None:
-        """Show launch confirmation modal and handle result"""
+        """Show launch confirmation (or prompt-on-launch) modal and launch template"""
+        from awx_tui.client import AWXClient
         from awx_tui.modals.confirm_launch import ConfirmLaunchModal
+        from awx_tui.modals.launch_prompt import LaunchPromptModal
+        from awx_tui.utils.launch_prompts import get_active_prompt_fields
 
-        # Show confirmation modal
-        confirmed = await self.app.push_screen_wait(ConfirmLaunchModal(template))
-
-        if not confirmed:
-            self.notify("Launch cancelled", timeout=2)
-            return
-
-        # Launch the job
         template_name = template.get("name", "Unknown")
-        self.notify(f"Launching job template '{template_name}'...", timeout=3)
+        template_type = template.get("type", "job_template")
+        is_workflow = template_type == "workflow_job_template"
+        template_id = template.get("id")
+        endpoint_base = (
+            f"/api/v2/workflow_job_templates/{template_id}" if is_workflow else f"/api/v2/job_templates/{template_id}"
+        )
+        launch_endpoint = f"{endpoint_base}/launch/"
+        launch_label = "workflow template" if is_workflow else "job template"
+        result_label = "Workflow Job" if is_workflow else "Job"
+
+        active_prompts = get_active_prompt_fields(template)
+        launch_payload: dict = {}
+
+        if active_prompts:
+            # Fetch launch metadata, survey spec (if enabled), and inventories (if prompted)
+            launch_info: dict = {}
+            survey_spec: dict | None = None
+            inventories: list = []
+
+            try:
+                client = self.app.instance_manager.get_current_client()
+
+                async def _fetch_prompt_metadata(c):
+                    nonlocal launch_info, survey_spec, inventories
+                    try:
+                        launch_info = await c.get(launch_endpoint)
+                    except Exception as err:
+                        self.app.log.warning(f"Could not fetch launch info from {launch_endpoint}: {err}")
+
+                    survey_enabled = launch_info.get("survey_enabled", template.get("survey_enabled", False))
+                    if survey_enabled:
+                        try:
+                            survey_spec = await c.get(f"{endpoint_base}/survey_spec/")
+                        except Exception as err:
+                            self.app.log.warning(f"Could not fetch survey_spec for {endpoint_base}: {err}")
+
+                    ask_inv = launch_info.get("ask_inventory_on_launch", template.get("ask_inventory_on_launch", False))
+                    if ask_inv:
+                        try:
+                            inv_resp = await c.get("/api/v2/inventories/", params={"page_size": 200})
+                            inventories = inv_resp.get("results", [])
+                        except Exception as err:
+                            self.app.log.warning(f"Could not fetch inventories for launch prompt: {err}")
+
+                if isinstance(client, AWXClient):
+                    async with client:
+                        await _fetch_prompt_metadata(client)
+                else:
+                    await _fetch_prompt_metadata(client)
+            except Exception as e:
+                self.app.log.error(f"Error preparing launch prompts: {e}")
+
+            result = await self.app.push_screen_wait(
+                LaunchPromptModal(
+                    template_data=template,
+                    launch_info=launch_info,
+                    survey_spec=survey_spec,
+                    inventories=inventories,
+                )
+            )
+            if result is None:
+                self.notify("Launch cancelled", timeout=2)
+                return
+            launch_payload = result
+        else:
+            # No prompts required - show simple confirmation modal
+            confirmed = await self.app.push_screen_wait(ConfirmLaunchModal(template))
+            if not confirmed:
+                self.notify("Launch cancelled", timeout=2)
+                return
+
+        # Launch the job or workflow
+        self.notify(f"Launching {launch_label} '{template_name}'...", timeout=3)
 
         try:
             instance_manager = self.app.instance_manager
             client = instance_manager.get_current_client()
 
-            from awx_tui.client import AWXClient
-
             if isinstance(client, AWXClient):
                 async with client:
-                    # POST to job template launch endpoint
-                    template_id = template.get("id")
-                    response = await client.post(f"/api/v2/job_templates/{template_id}/launch/", data={})
-
-                    job_id = response.get("id")
-                    job_name = response.get("name", "Unknown")
-
-                    self.notify(f"[green]✓[/green] Job #{job_id} '{job_name}' launched successfully!", timeout=5)
+                    response = await client.post(launch_endpoint, data=launch_payload)
             else:
                 # Mock client
-                template_id = template.get("id")
-                response = await client.post(f"/api/v2/job_templates/{template_id}/launch/", data={})
+                response = await client.post(launch_endpoint, data=launch_payload)
 
-                job_id = response.get("id")
-                job_name = response.get("name", "Unknown")
+            job_id = response.get("id")
+            job_name = response.get("name", "Unknown")
 
-                self.notify(f"[green]✓[/green] Job #{job_id} '{job_name}' launched successfully!", timeout=5)
+            self.notify(f"[green]✓[/green] {result_label} #{job_id} '{job_name}' launched successfully!", timeout=5)
 
         except Exception as e:
             import traceback
 
-            self.app.log.error(f"Failed to launch job: {e}\n{traceback.format_exc()}")
-            self.notify(f"[red]✗[/red] Failed to launch job: {e}", severity="error", timeout=5)
+            self.app.log.error(f"Failed to launch {launch_label}: {e}\n{traceback.format_exc()}")
+            self.notify(f"[red]✗[/red] Failed to launch {launch_label}: {e}", severity="error", timeout=5)
 
     # Navigation actions
     def action_back_to_dashboard(self) -> None:
@@ -851,9 +881,20 @@ class TemplatesScreen(Screen):
                 from awx_tui.screens.update_job_template import UpdateJobTemplateScreen
 
                 self.app.push_screen(UpdateJobTemplateScreen(template_id))
+            elif template_type == "workflow_job_template":
+                # Open read-only workflow structure preview modal
+                self.run_worker(self._show_workflow_structure(template))
             else:
                 # Show warning for unsupported template types
                 self.notify(f"Template updates for '{template_type}' not implemented", severity="warning", timeout=3)
 
         except (ValueError, IndexError) as e:
             self.app.log.error(f"Failed to select template: {e}")
+
+    async def _show_workflow_structure(self, template: dict) -> None:
+        """Show workflow template structure preview modal; launch if requested"""
+        from awx_tui.modals.workflow_structure import WorkflowStructureModal
+
+        result = await self.app.push_screen_wait(WorkflowStructureModal(template))
+        if result == "launch":
+            await self._show_launch_confirmation(template)

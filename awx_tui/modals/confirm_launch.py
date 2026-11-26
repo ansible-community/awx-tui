@@ -71,8 +71,11 @@ class ConfirmLaunchModal(ModalScreen[bool]):
         self.template_data = template_data
 
     def compose(self) -> ComposeResult:
+        is_workflow = self.template_data.get("type") == "workflow_job_template"
+        title = "Launch Workflow Template" if is_workflow else "Launch Job Template"
+
         with Vertical(id="confirm-dialog"):
-            yield Static("Launch Job Template", id="confirm-title")
+            yield Static(title, id="confirm-title")
             yield Static(self._format_template_info(), id="template-info")
             with Horizontal(id="confirm-buttons"):
                 yield Button("Launch", variant="primary", id="launch-button")
@@ -115,19 +118,33 @@ class ConfirmLaunchModal(ModalScreen[bool]):
                 last_run_str = format_time_ago(last_finished)
 
         # Build info display
-        info_lines = [
-            f"Template: {name}",
-            f"Organization: {org}",
-            f"Job Type: {job_type.upper()}",
-            "",
-            f"Inventory: {inventory}",
-            f"Project: {project}",
-            f"Playbook: {playbook}",
-            f"Execution Environment: {exec_env if exec_env != 'N/A' else 'PROJECT DEFAULT'}",
-            "",
-            f"Last Run: {last_run_str}",
-            f"Last Status: {last_status_str}",
-        ]
+        is_workflow = self.template_data.get("type") == "workflow_job_template"
+        if is_workflow:
+            description = self.template_data.get("description") or "N/A"
+            info_lines = [
+                f"Workflow Template: {name}",
+                f"Organization: {org}",
+                "Type: 🔀 WORKFLOW",
+                f"Inventory: {inventory}",
+                f"Description: {description[:60]}",
+                "",
+                f"Last Run: {last_run_str}",
+                f"Last Status: {last_status_str}",
+            ]
+        else:
+            info_lines = [
+                f"Template: {name}",
+                f"Organization: {org}",
+                f"Job Type: {job_type.upper()}",
+                "",
+                f"Inventory: {inventory}",
+                f"Project: {project}",
+                f"Playbook: {playbook}",
+                f"Execution Environment: {exec_env if exec_env != 'N/A' else 'PROJECT DEFAULT'}",
+                "",
+                f"Last Run: {last_run_str}",
+                f"Last Status: {last_status_str}",
+            ]
 
         return "\n".join(info_lines)
 
